@@ -311,7 +311,8 @@ const LONG_SIDE = isTouch ? 720 : 960;   // lengste side på lagrede bilder
 const AHEAD = 12;                        // antall bilder som pakkes ut på forhånd
 const $ = id => document.getElementById(id);
 
-const live = $('live'), out = $('out'), ctx = out.getContext('2d');
+let live = $('live');      // byttes ut ved kamerabytte (se startCamera)
+const out = $('out'), ctx = out.getContext('2d');
 const pill = $('pill'), progress = $('progress'), countEl = $('count');
 const camBtn = $('camBtn'), mainBtn = $('mainBtn'), sideBtn = $('sideBtn'), saveBtn = $('saveBtn');
 const dirRev = $('dirRev'), dirFwd = $('dirFwd');
@@ -452,24 +453,35 @@ function goToCamera() {
 const mirrored = () => facing !== 'environment';
 
 async function startCamera(want) {
-  const video = { facingMode: want, width: { ideal: 1280 }, height: { ideal: 720 } };
+  const open = async mode => {
+    const video = { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } };
+    try { const s = await navigator.mediaDevices.getUserMedia({ video, audio: true }); hasMic = true; return s; }
+    catch (e) { const s = await navigator.mediaDevices.getUserMedia({ video }); hasMic = false; return s; }
+  };
+  // Telefoner (særlig iPhone) kan bare bruke ett kamera om gangen: slipp det gamle først
+  const prevFacing = stream ? facing : null;
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
   let next;
-  try {
-    next = await navigator.mediaDevices.getUserMedia({ video, audio: true });
-    hasMic = true;
-  } catch (e) {
-    try { next = await navigator.mediaDevices.getUserMedia({ video }); hasMic = false; }
-    catch (e2) {
-      if (!stream) { $('emptyMsg').textContent = 'Fikk ikke tilgang til kameraet.'; $('emptyMsg').hidden = false; }
-      else toast('Fikk ikke byttet kamera.', false);
-      return;
-    }
+  try { next = await open(want); }
+  catch (e) {
+    // Byttet feilet – prøv å få tilbake kameraet vi hadde
+    if (prevFacing) { try { next = await open(prevFacing); } catch (e2) {} }
+    if (!next) { $('emptyMsg').textContent = 'Fikk ikke tilgang til kameraet.'; $('emptyMsg').hidden = false; $('empty').style.display = ''; render(); return; }
+    toast('Fikk ikke byttet kamera.', false);
   }
-  if (stream) stream.getTracks().forEach(t => t.stop());
   stream = next;
   facing = stream.getVideoTracks()[0].getSettings().facingMode || want;
-  live.classList.toggle('mirror', mirrored());
-  live.srcObject = stream;
+
+  // Nytt videoelement for hver kamerastrøm. Safari på iPhone beholder ellers
+  // størrelsen fra forrige kamera, så bildet blir mindre med svarte kanter.
+  const fresh = live.cloneNode(false);
+  fresh.muted = true; fresh.playsInline = true; fresh.autoplay = true;
+  fresh.classList.toggle('mirror', mirrored());
+  fresh.srcObject = stream;
+  live.srcObject = null;
+  live.replaceWith(fresh);
+  live = fresh;
+  live.play().catch(() => {});
   $('empty').style.display = 'none';
   try {
     const cams = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
@@ -479,7 +491,13 @@ async function startCamera(want) {
 }
 
 camBtn.onclick = () => { unlockAudio(); startCamera('user'); };
-$('flipBtn').onclick = () => startCamera(facing === 'environment' ? 'user' : 'environment');
+let switching = false;
+$('flipBtn').onclick = async () => {
+  if (switching) return;
+  switching = true;
+  try { await startCamera(facing === 'environment' ? 'user' : 'environment'); }
+  finally { switching = false; }
+};
 
 // iPhone/iPad spiller bare lyd hvis lyden «låses opp» fra et trykk
 function unlockAudio() {
