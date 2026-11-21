@@ -11,309 +11,228 @@
 <link rel="icon" href="icons/favicon-16.png" type="image/png" sizes="16x16">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0a0b0e">
+<meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-title" content="Revers">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
   :root {
-    --bg: #0a0b0e;
-    --surface: #16171c;
-    --surface-2: #1f2027;
-    --line: rgba(255,255,255,.07);
     --text: #f4f5f7;
     --muted: #8d909a;
     --red: #ff3b4a;
     --blue: #3e8bff;
-    --radius-xl: 28px;
-    --radius-lg: 22px;
+    --glass: rgba(22, 23, 28, .55);
+    --glass-line: rgba(255, 255, 255, .09);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
   body {
-    min-height: 100vh; min-height: 100dvh; background: var(--bg); color: var(--text);
+    color: var(--text); -webkit-text-size-adjust: 100%;
     font: 15px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-    display: flex; justify-content: center;
-    /* luft rundt skjermhakk og Hjem-linje på mobil */
-    padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
-             max(32px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-    background-image: radial-gradient(1200px 500px at 50% -200px, rgba(62,139,255,.10), transparent 70%);
-    -webkit-text-size-adjust: 100%;
+    -webkit-user-select: none; user-select: none; overscroll-behavior: none;
   }
-  button { touch-action: manipulation; }  /* ingen dobbelttrykk-zoom på knapper */
-  .dock, .settings, header { -webkit-user-select: none; user-select: none; }
-  .app { width: 100%; max-width: 920px; display: flex; flex-direction: column; gap: 16px; }
-  /* På store skjermer: krymp bildet slik at alt får plass i vinduets høyde */
-  @media (min-width: 721px) {
-    .app { max-width: max(560px, min(920px, calc((100vh - 420px) * 16 / 9))); }
-  }
+  button { touch-action: manipulation; font: inherit; }
   svg.i { width: 1em; height: 1em; display: block; flex: none; }
 
-  /* Topp */
-  header { display: flex; align-items: center; justify-content: space-between; padding: 0 6px; }
-  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: -.2px; }
-  .logo .mark {
-    width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; font-size: 20px;
-    background: linear-gradient(135deg, var(--red), #ff7a45); color: #fff;
-  }
-  .logo .flip { display: inline-block; transform: scaleX(-1); }
-  header .tag { color: var(--muted); font-size: 13px; }
-  .install {
-    display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; border: 0;
-    background: var(--text); color: #0b0c0f; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
-    transition: transform .15s;
-  }
-  .install .i { font-size: 18px; }
-  .install:hover { transform: scale(1.03); }
-  .install[hidden] { display: none; }
-
-  /* Bilde */
-  .stage {
-    /* --arn = bredde/høyde for det som vises; --maxh = høyeste tillatte høyde */
-    --arn: 1.7778; --maxh: calc(100dvh - 420px);
-    position: relative; aspect-ratio: var(--arn); background: #000; margin: 0 auto;
-    width: min(100%, max(240px, calc(var(--maxh) * var(--arn))));
-    border-radius: var(--radius-xl); overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.45);
-    transition: width .25s ease;
-  }
+  /* ---------- Fullskjerm-bilde ---------- */
+  .stage { position: fixed; inset: 0; background: #000; }
   video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   video.mirror { transform: scaleX(-1); }
-  .flipcam {
-    position: absolute; top: 12px; right: 12px; width: 44px; height: 44px; border-radius: 50%; border: 0;
-    display: grid; place-items: center; font-size: 22px; color: #fff; cursor: pointer;
-    background: rgba(10,11,14,.55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  }
-  .flipcam[hidden] { display: none; }
-  .pill {
-    position: absolute; top: 14px; left: 14px; display: none; align-items: center; gap: 8px;
-    padding: 7px 13px; border-radius: 999px; font-size: 13px; font-weight: 600;
-    background: rgba(10,11,14,.55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-    font-variant-numeric: tabular-nums;
-  }
-  .pill.show { display: inline-flex; }
-  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); animation: pulse 1.2s infinite; }
-  .pill.play { color: #cfe1ff; }
-  .pill.play .i { font-size: 16px; color: var(--blue); }
-  @keyframes pulse { 50% { opacity: .25; } }
-  .track { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255,255,255,.12); }
+  .track { position: absolute; left: 0; right: 0; top: 0; height: 3px; z-index: 7; }
   .track div { height: 100%; width: 0; background: var(--red); }
 
   .empty {
-    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 14px; text-align: center; padding: 20px; color: var(--muted);
-    background: radial-gradient(circle at 50% 45%, #1b1d24, #0d0e12 70%);
+    position: absolute; inset: 0; z-index: 8; display: flex; flex-direction: column; gap: 14px;
+    align-items: center; justify-content: center; padding: 24px; text-align: center; color: var(--muted);
+    background: radial-gradient(circle at 50% 42%, #1c1e26, #060709 70%);
   }
   .empty .big {
-    display: inline-flex; align-items: center; gap: 10px; padding: 16px 26px; border-radius: 999px; border: 0;
-    background: var(--text); color: #0b0c0f; font: inherit; font-weight: 700; font-size: 16px; cursor: pointer;
-    transition: transform .15s;
+    display: inline-flex; align-items: center; gap: 10px; padding: 18px 28px; border-radius: 999px; border: 0;
+    background: var(--text); color: #0b0c0f; font-weight: 700; font-size: 17px; cursor: pointer; transition: transform .15s;
   }
-  .empty .big .i { font-size: 22px; }
-  .empty .big:hover { transform: scale(1.03); }
-  .empty p { margin: 0; max-width: 340px; font-size: 14px; }
+  .empty .big .i { font-size: 24px; }
+  .empty .big:active, .empty .big:hover { transform: scale(1.04); }
+  .empty p { margin: 0; max-width: 320px; font-size: 14px; }
+  .empty p[hidden] { display: none; }
 
-  /* Kontrollpanel */
-  .dock {
-    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
-    padding: 14px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-xl);
+  /* Nedtelling */
+  .count {
+    position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; pointer-events: none;
+    background: rgba(0, 0, 0, .22); color: #fff; font-weight: 800; font-size: min(42vw, 42vh);
+    font-variant-numeric: tabular-nums; text-shadow: 0 10px 50px rgba(0, 0, 0, .5);
   }
-  .side { display: flex; }
-  .side.right { justify-content: flex-end; }
-  .tool {
-    display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 84px;
-    padding: 8px 10px; border: 0; border-radius: 18px; background: transparent; color: var(--text);
-    font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: background .15s, opacity .15s;
+  .count[hidden] { display: none; }
+  .count span { display: block; line-height: 1; }
+  .count.tick span { animation: tick 1s ease-out both; }
+  @keyframes tick {
+    0% { transform: scale(1.4); opacity: 0; }
+    15% { opacity: 1; }
+    75% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(.92); opacity: 0; }
   }
-  .tool .ic {
-    width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center;
-    background: var(--surface-2); font-size: 24px;
-  }
-  .tool:hover:not(:disabled) .ic { background: #2a2c35; }
-  .tool:disabled { opacity: .3; cursor: default; }
-  .tool[hidden] { display: none; }
 
-  .main {
-    width: 78px; height: 78px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
-    display: grid; place-items: center; position: relative; color: #fff; font-size: 30px;
-    background: transparent; transition: transform .15s;
+  /* ---------- Glass-kontroller oppå bildet ---------- */
+  .glass {
+    background: var(--glass); border: 1px solid var(--glass-line); color: #fff;
+    backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
   }
-  .main::before { /* ytre ring */
-    content: ""; position: absolute; inset: 0; border-radius: 50%; border: 4px solid rgba(255,255,255,.9);
+  .round {
+    width: 46px; height: 46px; border-radius: 50%; padding: 0; display: grid; place-items: center;
+    font-size: 22px; cursor: pointer; transition: opacity .2s, transform .15s;
   }
-  .main .core {
-    width: 62px; height: 62px; border-radius: 50%; background: var(--red); display: grid; place-items: center;
-    transition: all .2s ease;
-  }
-  .main.recording .core { width: 34px; height: 34px; border-radius: 9px; }
-  .main.clip::before { border-color: rgba(62,139,255,.35); }
-  .main.clip .core { background: var(--blue); }
-  .main:hover:not(:disabled) { transform: scale(1.04); }
-  .main:disabled { opacity: .3; cursor: default; }
+  .round.lg { width: 56px; height: 56px; font-size: 26px; }
+  .round:active:not(:disabled) { transform: scale(.94); }
+  .round:disabled { opacity: .3; cursor: default; }
+  .round[hidden] { display: none; }
 
-  /* Innstillinger */
-  .settings { display: flex; flex-wrap: wrap; gap: 12px; }
-  .settings .card { flex: none; }
-  .settings .card.voice { flex: 1 1 380px; }
-  .card {
-    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
-    padding: 12px 14px; display: flex; align-items: center; gap: 12px; min-width: 0;
+  .top {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 6; pointer-events: none;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 40px max(14px, env(safe-area-inset-left));
+    background: linear-gradient(rgba(0, 0, 0, .38), transparent);
   }
-  .label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; font-weight: 600; white-space: nowrap; }
-  .label .i { font-size: 18px; color: var(--text); }
+  .top > * { pointer-events: auto; }
+  .top-right { display: flex; gap: 10px; margin-left: auto; }
+  .pill {
+    display: none; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 999px;
+    font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .pill.show { display: inline-flex; }
+  .pill .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--red); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity: .25; } }
 
-  .seg { display: flex; background: var(--surface-2); border-radius: 999px; padding: 4px; gap: 2px; }
+  .bottom {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    padding: 50px max(14px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+    background: linear-gradient(transparent, rgba(0, 0, 0, .55));
+  }
+  .bottom > * { pointer-events: auto; }
+
+  .options { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; transition: opacity .2s; }
+  .seg { display: flex; border-radius: 999px; padding: 3px; gap: 2px; }
   .seg button {
-    display: flex; align-items: center; gap: 7px; padding: 9px 15px; border: 0; border-radius: 999px;
-    background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
-    transition: background .2s, color .2s;
+    width: 44px; height: 38px; border-radius: 999px; border: 0; padding: 0; display: grid; place-items: center;
+    background: transparent; color: rgba(255, 255, 255, .6); font-size: 20px; cursor: pointer; transition: background .2s, color .2s;
   }
-  .seg button .i { font-size: 18px; }
   .seg button.on { background: var(--blue); color: #fff; }
   .seg button:disabled { cursor: default; }
-
-  .voice { flex: 1; }
-  .voice input[type=range] { flex: 1; min-width: 80px; accent-color: var(--blue); height: 24px; }
-  .voice .val {
-    min-width: 44px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums;
-    background: var(--surface-2); border-radius: 999px; padding: 5px 8px; font-size: 13px;
-  }
-  .voice .end { color: var(--muted); font-size: 12px; }
-  .icon-btn {
-    width: 34px; height: 34px; border-radius: 50%; border: 0; display: grid; place-items: center; flex: none;
-    background: var(--surface-2); color: var(--text); font-size: 17px; cursor: pointer;
-  }
-  .icon-btn:hover:not(:disabled) { background: #2a2c35; }
-  .icon-btn:disabled { opacity: .35; cursor: default; }
-
-  .toggles { gap: 8px; }
   .chip {
-    display: flex; align-items: center; gap: 7px; padding: 9px 14px; border-radius: 999px; border: 0;
-    background: var(--surface-2); color: var(--muted); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
-    transition: background .2s, color .2s; white-space: nowrap; min-width: 0;
+    height: 46px; min-width: 46px; padding: 0 13px; border-radius: 999px; display: inline-flex; align-items: center;
+    justify-content: center; gap: 6px; font-size: 14px; font-weight: 700; white-space: nowrap; cursor: pointer;
+    color: rgba(255, 255, 255, .6); transition: background .2s, color .2s, border-color .2s;
   }
-  .chip .i { font-size: 18px; }
-  .chip #folderName { overflow: hidden; text-overflow: ellipsis; max-width: 14ch; }
-  .chip[aria-pressed="true"] { background: rgba(62,139,255,.16); color: #9cc3ff; }
+  .chip .i { font-size: 20px; }
+  .chip[aria-pressed="true"] { color: #fff; background: rgba(62, 139, 255, .38); border-color: rgba(62, 139, 255, .55); }
   .chip:disabled { opacity: .4; cursor: default; }
+  .chip[hidden] { display: none; }
+  .chip span:empty { display: none; }
+  #folderName { max-width: 12ch; overflow: hidden; text-overflow: ellipsis; }
 
-  footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: 12px; padding: 0 6px; }
-  footer a { color: inherit; }
-  kbd { font: inherit; background: var(--surface-2); border-radius: 6px; padding: 1px 6px; color: var(--text); }
+  .panel {
+    display: flex; align-items: center; gap: 12px; width: min(420px, 100%);
+    padding: 8px 8px 8px 16px; border-radius: 999px; font-size: 20px;
+  }
+  .panel[hidden] { display: none; }
+  .panel input { flex: 1; min-width: 0; height: 32px; accent-color: var(--blue); }
+  .panel .val { min-width: 34px; text-align: center; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .panel .round { width: 36px; height: 36px; font-size: 17px; background: rgba(255, 255, 255, .1); border: 0; color: #fff; }
+
+  .dock { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; width: min(400px, 100%); }
+  .dock #sideBtn { justify-self: start; }
+  .dock #saveBtn { justify-self: end; }
+  #saveBtn.working { animation: pulse 1s infinite; }
+  body.busy .options, body.busy #sideBtn, body.busy #saveBtn, body.busy .panel { opacity: 0; pointer-events: none; }
+  body.nocam .bottom, body.nocam #flipBtn { display: none; }
+
+  .main {
+    width: 82px; height: 82px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; position: relative;
+    display: grid; place-items: center; background: transparent; color: #fff; font-size: 30px; transition: transform .15s;
+  }
+  .main::before { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 4px solid rgba(255, 255, 255, .95); }
+  .main .core {
+    width: 66px; height: 66px; border-radius: 50%; background: var(--red); display: grid; place-items: center; transition: all .2s ease;
+  }
+  .main.recording .core { width: 34px; height: 34px; border-radius: 9px; }
+  .main.clip::before { border-color: rgba(255, 255, 255, .5); }
+  .main.clip .core { background: var(--blue); }
+  .main:active:not(:disabled) { transform: scale(.95); }
+  .main:disabled { opacity: .3; cursor: default; }
 
   /* Melding */
   .toast {
-    position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
-    display: flex; align-items: center; gap: 10px; width: max-content; max-width: calc(100% - 32px);
-    padding: 12px 18px; border-radius: 999px; background: #24262e; border: 1px solid var(--line);
-    box-shadow: 0 12px 40px rgba(0,0,0,.5); font-size: 14px; transition: all .25s ease;
+    position: fixed; left: 50%; top: calc(max(14px, env(safe-area-inset-top)) + 58px); z-index: 9;
+    transform: translate(-50%, -12px); opacity: 0; pointer-events: none;
+    display: flex; align-items: center; gap: 10px; width: max-content; max-width: calc(100% - 28px);
+    padding: 11px 16px; border-radius: 999px; font-size: 14px; font-weight: 600; transition: all .25s ease;
   }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
   .toast .i { font-size: 20px; color: #4cd97b; }
   .toast.err .i { color: #ffb020; }
-  .toast.action { pointer-events: auto; padding: 8px 8px 8px 16px; }
+  .toast.action { pointer-events: auto; padding: 6px 6px 6px 16px; }
   .toast button {
-    display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; padding: 9px 14px; border: 0; border-radius: 999px;
-    background: var(--blue); color: #fff; font: inherit; font-weight: 700; cursor: pointer; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border: 0; border-radius: 999px;
+    background: var(--blue); color: #fff; font-weight: 700; cursor: pointer; white-space: nowrap;
   }
   .toast button .i { color: #fff; font-size: 18px; }
   .toast button[hidden] { display: none; }
-  .ios-hint { font-size: 13px !important; opacity: .85; }
 
-  /* ---------- Mobil ---------- */
-  @media (max-width: 720px) {
-    body { padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(20px, env(safe-area-inset-bottom)); }
-    .app { gap: 12px; }
-    .stage { --maxh: 58dvh; border-radius: var(--radius-lg); }
-    .dock { padding: 10px 12px; border-radius: var(--radius-lg); }
-    .tool { min-width: 64px; padding: 6px; }
-    .settings { gap: 10px; }
-    .settings .card { flex: 1 1 100%; }
-    .card { padding: 10px 12px; }
-    .seg { flex: 1; } .seg button { flex: 1; justify-content: center; padding: 11px 12px; }
-    .toggles { justify-content: space-between; }
-    .toggles .chip { flex: 1; justify-content: center; padding: 11px 10px; }
-    .voice { flex-wrap: wrap; row-gap: 6px; }
-    .voice .label { flex: 1; }
-    .voice input[type=range] { order: 5; flex: 1 1 100%; height: 32px; }
-    .voice .end { display: none; }
-    footer { justify-content: center; text-align: center; }
+  @media (max-width: 360px) {
+    .options { gap: 6px; }
+    .chip { min-width: 42px; height: 42px; padding: 0 10px; }
+    .seg button { width: 40px; height: 34px; }
   }
-  @media (max-width: 420px) { header .tag { display: none; } }
-  /* Liggende mobil: bildet ved siden av kontrollene */
-  @media (max-height: 500px) and (orientation: landscape) {
-    .stage { --maxh: calc(100dvh - 140px); }
-  }
-  /* Berøringsskjerm: tastatursnarveien gir ingen mening */
-  @media (hover: none) { .kbdhint { display: none; } }
 </style>
 </head>
 <body>
-<div class="app">
-  <header>
-    <div class="logo"><span class="mark" data-icon="rewind-back-bold"></span><span>Re<span class="flip">vers</span></span></div>
-    <span class="tag" id="tag">Film – og se det baklengs</span>
-    <button id="installBtn" class="install" hidden><span data-icon="download-minimalistic-bold"></span>Installer app</button>
-  </header>
-
   <div class="stage">
     <video id="live" class="mirror" autoplay muted playsinline></video>
     <canvas id="out"></canvas>
-    <div id="pill" class="pill"></div>
-    <button id="flipBtn" class="flipcam" hidden aria-label="Bytt kamera" title="Bytt kamera"><span data-icon="camera-rotate-bold"></span></button>
     <div class="track"><div id="progress"></div></div>
+    <div id="count" class="count" hidden></div>
     <div id="empty" class="empty">
       <button id="camBtn" class="big"><span data-icon="videocamera-record-bold"></span>Start kamera</button>
-      <p id="emptyMsg">Gi tilgang til kamera og mikrofon for å begynne.</p>
-      <p id="iosHint" class="ios-hint" hidden>Tips: trykk <b>Del</b> og <b>Legg til på Hjem-skjerm</b> for å installere Revers som app.</p>
+      <p id="emptyMsg" hidden></p>
     </div>
   </div>
 
-  <div class="dock">
-    <div class="side">
-      <button id="sideBtn" class="tool" disabled>
-        <span class="ic" id="sideIcon"></span><span id="sideLabel">Kamera</span>
-      </button>
-    </div>
-    <button id="mainBtn" class="main" disabled aria-label="Ta opp"><span class="core" id="mainIcon"></span></button>
-    <div class="side right">
-      <button id="saveBtn" class="tool" disabled>
-        <span class="ic" id="saveIcon"></span><span id="saveLabel">Lagre</span>
-      </button>
+  <div class="top">
+    <div id="pill" class="pill glass"></div>
+    <div class="top-right">
+      <button id="installBtn" class="round glass" hidden aria-label="Installer app" title="Installer app"><span data-icon="download-minimalistic-bold"></span></button>
+      <button id="flipBtn" class="round glass" hidden aria-label="Bytt kamera" title="Bytt kamera"><span data-icon="camera-rotate-bold"></span></button>
     </div>
   </div>
 
-  <div class="settings">
-    <div class="card">
-      <div class="seg" role="group" aria-label="Retning">
-        <button id="dirRev" class="on"><span data-icon="rewind-back-bold"></span>Baklengs</button>
-        <button id="dirFwd"><span data-icon="rewind-forward-bold"></span>Forlengs</button>
-      </div>
-    </div>
-    <div class="card toggles">
-      <button id="loopBtn" class="chip" aria-pressed="true"><span data-icon="repeat-bold"></span>Loop</button>
-      <button id="soundBtn" class="chip" aria-pressed="true"><span id="soundIcon"></span>Lyd</button>
-      <button id="folderBtn" class="chip" title="Velg mappe videoene lagres i"><span data-icon="folder-bold"></span><span id="folderName">Velg mappe</span></button>
-    </div>
-    <div class="card voice">
-      <span class="label"><span data-icon="microphone-bold"></span>Stemme</span>
-      <span class="end">Dypere</span>
+  <div class="bottom">
+    <div id="voicePanel" class="panel glass" hidden>
+      <span data-icon="microphone-bold"></span>
       <input type="range" id="pitch" min="-12" max="12" step="1" value="0" aria-label="Stemme">
-      <span class="end">Lysere</span>
       <span class="val" id="pitchVal">0</span>
-      <button id="pitchReset" class="icon-btn" title="Nullstill stemme" disabled><span data-icon="restart-bold"></span></button>
+      <button id="pitchReset" class="round" aria-label="Nullstill stemme" title="Nullstill"><span data-icon="restart-bold"></span></button>
+    </div>
+    <div class="options">
+      <div class="seg glass" role="group" aria-label="Retning">
+        <button id="dirRev" class="on" aria-label="Baklengs" title="Baklengs"><span data-icon="rewind-back-bold"></span></button>
+        <button id="dirFwd" aria-label="Forlengs" title="Forlengs"><span data-icon="rewind-forward-bold"></span></button>
+      </div>
+      <button id="timerBtn" class="chip glass" aria-label="Nedtelling" title="Nedtelling"><span data-icon="stopwatch-bold"></span><span id="timerVal"></span></button>
+      <button id="loopBtn" class="chip glass" aria-label="Loop" title="Loop"><span data-icon="repeat-bold"></span></button>
+      <button id="soundBtn" class="chip glass" aria-label="Lyd" title="Lyd"><span id="soundIcon"></span></button>
+      <button id="voiceBtn" class="chip glass" aria-label="Stemme" title="Stemme"><span data-icon="microphone-bold"></span></button>
+      <button id="folderBtn" class="chip glass" aria-label="Velg mappe" title="Velg mappe"><span data-icon="folder-bold"></span><span id="folderName"></span></button>
+    </div>
+    <div class="dock">
+      <button id="sideBtn" class="round lg glass" disabled><span id="sideIcon"></span></button>
+      <button id="mainBtn" class="main" disabled aria-label="Ta opp"><span class="core" id="mainIcon"></span></button>
+      <button id="saveBtn" class="round lg glass" disabled aria-label="Lagre" title="Lagre"><span id="saveIcon"></span></button>
     </div>
   </div>
 
-  <footer>
-    <span class="kbdhint"><kbd>Mellomrom</kbd> tar opp / spiller av · maks 20 sek · lagres i mappen du velger</span>
-    <span>Ikoner: <a href="https://www.figma.com/community/file/1166831539721848736" target="_blank" rel="noopener">Solar</a> av 480 Design (CC BY 4.0)</span>
-  </footer>
-</div>
-
-<div id="toast" class="toast" role="status"><span id="toastIcon"></span><span id="toastText"></span><button id="toastBtn" hidden></button></div>
+  <div id="toast" class="toast glass" role="status"><span id="toastIcon"></span><span id="toastText"></span><button id="toastBtn" hidden></button></div>
 
 <script>
-// Solar-ikoner (480 Design, CC BY 4.0) via Iconify
 const ICONS = {
  "camera-rotate-bold": "<path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M14.2222 21H9.77778C6.65675 21 5.09624 21 3.97524 20.2646C3.48995 19.9462 3.07328 19.5371 2.74902 19.0607C2 17.9601 2 16.4279 2 13.3636C2 10.2994 2 8.76721 2.74902 7.6666C3.07328 7.19014 3.48995 6.78104 3.97524 6.46268C4.69555 5.99013 5.59733 5.82123 6.978 5.76086C7.63685 5.76086 8.20412 5.27068 8.33333 4.63636C8.52715 3.68489 9.37805 3 10.3663 3H13.6337C14.6219 3 15.4728 3.68489 15.6667 4.63636C15.7959 5.27068 16.3631 5.76086 17.022 5.76086C18.4027 5.82123 19.3044 5.99013 20.0248 6.46268C20.51 6.78104 20.9267 7.19014 21.251 7.6666C22 8.76721 22 10.2994 22 13.3636C22 16.4279 22 17.9601 21.251 19.0607C20.9267 19.5371 20.51 19.9462 20.0248 20.2646C18.9038 21 17.3433 21 14.2222 21ZM15.2697 9.59961C15.2697 9.1854 14.9339 8.84961 14.5197 8.84961C14.1055 8.84961 13.7697 9.1854 13.7697 9.59961V9.74316C12.2996 8.99864 10.4581 9.24066 9.22951 10.4692C7.69954 11.9992 7.69954 14.4798 9.22951 16.0098C10.7595 17.5397 13.2401 17.5397 14.77 16.0098C15.421 15.3588 15.7957 14.5337 15.8923 13.6844C15.9391 13.2728 15.6434 12.9012 15.2319 12.8544C14.8203 12.8076 14.4487 13.1033 14.4019 13.5148C14.3422 14.0392 14.112 14.5465 13.7094 14.9491C12.7652 15.8933 11.2344 15.8933 10.2902 14.9491C9.34598 14.0049 9.34598 12.4741 10.2902 11.5299C10.9379 10.8822 11.8617 10.6788 12.6828 10.9198C12.3737 11.0637 12.1928 11.4061 12.2661 11.7542C12.3515 12.1595 12.7492 12.4189 13.1546 12.3335L14.6743 12.0135C15.0213 11.9404 15.2697 11.6342 15.2697 11.2796V9.59961Z\" clip-rule=\"evenodd\"/>",
  "share-bold": "<path fill=\"currentColor\" d=\"M17 2.25C18.7949 2.25 20.25 3.70507 20.25 5.5C20.25 7.29493 18.7949 8.75 17 8.75C16.1304 8.75 15.343 8.40587 14.7598 7.84961C13.1933 8.8679 11.6271 9.88698 10.0605 10.9053C10.1829 11.2474 10.25 11.6158 10.25 12C10.25 12.3843 10.182 12.7525 10.0596 13.0947C11.6262 14.1131 13.1931 15.1311 14.7598 16.1494C15.343 15.5934 16.1306 15.25 17 15.25C18.7949 15.25 20.25 16.7051 20.25 18.5C20.25 20.2949 18.7949 21.75 17 21.75C15.2051 21.75 13.75 20.2949 13.75 18.5C13.75 18.1158 13.8171 17.7474 13.9395 17.4053C12.3728 16.387 10.8059 15.3688 9.23926 14.3506C8.65611 14.9063 7.86912 15.25 7 15.25C5.20507 15.25 3.75 13.7949 3.75 12C3.75 10.2051 5.20507 8.75 7 8.75C7.86887 8.75 8.65616 9.09301 9.23926 9.64844C10.8059 8.63012 12.3728 7.61206 13.9395 6.59375C13.8173 6.25189 13.75 5.88385 13.75 5.5C13.75 3.70507 15.2051 2.25 17 2.25Z\"/>",
@@ -333,22 +252,27 @@ const ICONS = {
  "restart-bold": "<path fill=\"currentColor\" d=\"M18.2577 3.50828C18.538 3.62437 18.7207 3.89785 18.7207 4.20119V8.44383C18.7207 8.85805 18.3849 9.19383 17.9707 9.19383H13.728C13.4247 9.19383 13.1512 9.0111 13.0351 8.73085C12.9191 8.45059 12.9832 8.128 13.1977 7.9135L14.8007 6.3105C12.1674 5.20912 9.01606 5.7309 6.87348 7.87348C4.04217 10.7048 4.04217 15.2952 6.87348 18.1265C9.70478 20.9578 14.2952 20.9578 17.1265 18.1265C18.7727 16.4803 19.4622 14.2401 19.1935 12.0937C19.142 11.6827 19.4335 11.3078 19.8445 11.2563C20.2555 11.2049 20.6304 11.4963 20.6819 11.9073C21.0057 14.4934 20.1746 17.1997 18.1872 19.1872C14.7701 22.6043 9.2299 22.6043 5.81282 19.1872C2.39573 15.7701 2.39573 10.2299 5.81282 6.81282C8.55119 4.07444 12.6515 3.5312 15.9309 5.18028L17.4404 3.67086C17.6549 3.45637 17.9774 3.3922 18.2577 3.50828Z\"/>",
  "check-circle-bold": "<path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12ZM16.0303 8.96967C16.3232 9.26256 16.3232 9.73744 16.0303 10.0303L11.0303 15.0303C10.7374 15.3232 10.2626 15.3232 9.96967 15.0303L7.96967 13.0303C7.67678 12.7374 7.67678 12.2626 7.96967 11.9697C8.26256 11.6768 8.73744 11.6768 9.03033 11.9697L10.5 13.4393L12.7348 11.2045L14.9697 8.96967C15.2626 8.67678 15.7374 8.67678 16.0303 8.96967Z\" clip-rule=\"evenodd\"/>",
  "danger-circle-bold": "<path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12ZM12 6.25C12.4142 6.25 12.75 6.58579 12.75 7V13C12.75 13.4142 12.4142 13.75 12 13.75C11.5858 13.75 11.25 13.4142 11.25 13V7C11.25 6.58579 11.5858 6.25 12 6.25ZM12 17C12.5523 17 13 16.5523 13 16C13 15.4477 12.5523 15 12 15C11.4477 15 11 15.4477 11 16C11 16.5523 11.4477 17 12 17Z\" clip-rule=\"evenodd\"/>",
- "record-circle-bold": "<path fill=\"currentColor\" d=\"M14.25 12C14.25 11.0335 15.0335 10.25 16 10.25C16.9665 10.25 17.75 11.0335 17.75 12C17.75 12.9665 16.9665 13.75 16 13.75C15.0335 13.75 14.25 12.9665 14.25 12Z\"/><path fill=\"currentColor\" d=\"M8 13.75C8.9665 13.75 9.75 12.9665 9.75 12C9.75 11.0335 8.9665 10.25 8 10.25C7.0335 10.25 6.25 11.0335 6.25 12C6.25 12.9665 7.0335 13.75 8 13.75Z\"/><path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22ZM13.2609 13.75C12.9375 13.2449 12.75 12.6443 12.75 12C12.75 10.2051 14.2051 8.75 16 8.75C17.7949 8.75 19.25 10.2051 19.25 12C19.25 13.7949 17.7949 15.25 16 15.25H8C6.20507 15.25 4.75 13.7949 4.75 12C4.75 10.2051 6.20507 8.75 8 8.75C9.79493 8.75 11.25 10.2051 11.25 12C11.25 12.6443 11.0625 13.2449 10.7391 13.75H13.2609Z\" clip-rule=\"evenodd\"/>"
+ "record-circle-bold": "<path fill=\"currentColor\" d=\"M14.25 12C14.25 11.0335 15.0335 10.25 16 10.25C16.9665 10.25 17.75 11.0335 17.75 12C17.75 12.9665 16.9665 13.75 16 13.75C15.0335 13.75 14.25 12.9665 14.25 12Z\"/><path fill=\"currentColor\" d=\"M8 13.75C8.9665 13.75 9.75 12.9665 9.75 12C9.75 11.0335 8.9665 10.25 8 10.25C7.0335 10.25 6.25 11.0335 6.25 12C6.25 12.9665 7.0335 13.75 8 13.75Z\"/><path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22ZM13.2609 13.75C12.9375 13.2449 12.75 12.6443 12.75 12C12.75 10.2051 14.2051 8.75 16 8.75C17.7949 8.75 19.25 10.2051 19.25 12C19.25 13.7949 17.7949 15.25 16 15.25H8C6.20507 15.25 4.75 13.7949 4.75 12C4.75 10.2051 6.20507 8.75 8 8.75C9.79493 8.75 11.25 10.2051 11.25 12C11.25 12.6443 11.0625 13.2449 10.7391 13.75H13.2609Z\" clip-rule=\"evenodd\"/>",
+ "stopwatch-bold": "<g fill=\"currentColor\" fill-rule=\"evenodd\" clip-rule=\"evenodd\"><path d=\"M12 22C16.9706 22 21 17.9706 21 13C21 8.02944 16.9706 4 12 4C7.02944 4 3 8.02944 3 13C3 17.9706 7.02944 22 12 22ZM12 8.25C12.4142 8.25 12.75 8.58579 12.75 9V13C12.75 13.4142 12.4142 13.75 12 13.75C11.5858 13.75 11.25 13.4142 11.25 13V9C11.25 8.58579 11.5858 8.25 12 8.25Z\"/><path d=\"M9.25 2C9.25 1.58579 9.58579 1.25 10 1.25H14C14.4142 1.25 14.75 1.58579 14.75 2C14.75 2.41421 14.4142 2.75 14 2.75H10C9.58579 2.75 9.25 2.41421 9.25 2Z\"/></g>",
+ "close-circle-bold": "<path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12ZM8.96963 8.96965C9.26252 8.67676 9.73739 8.67676 10.0303 8.96965L12 10.9393L13.9696 8.96967C14.2625 8.67678 14.7374 8.67678 15.0303 8.96967C15.3232 9.26256 15.3232 9.73744 15.0303 10.0303L13.0606 12L15.0303 13.9696C15.3232 14.2625 15.3232 14.7374 15.0303 15.0303C14.7374 15.3232 14.2625 15.3232 13.9696 15.0303L12 13.0607L10.0303 15.0303C9.73742 15.3232 9.26254 15.3232 8.96965 15.0303C8.67676 14.7374 8.67676 14.2625 8.96965 13.9697L10.9393 12L8.96963 10.0303C8.67673 9.73742 8.67673 9.26254 8.96963 8.96965Z\" clip-rule=\"evenodd\"/>",
+ "tuning-2-bold": "<path fill=\"currentColor\" d=\"M9.25 14C10.9069 14 12.25 15.3431 12.25 17C12.25 18.6569 10.9069 20 9.25 20C7.59315 20 6.25 18.6569 6.25 17C6.25 15.3431 7.59315 14 9.25 14Z\"/><path fill=\"currentColor\" d=\"M14.25 4C12.5931 4 11.25 5.34315 11.25 7C11.25 8.65685 12.5931 10 14.25 10C15.9069 10 17.25 8.65685 17.25 7C17.25 5.34315 15.9069 4 14.25 4Z\"/><path fill=\"currentColor\" d=\"M8.75 6.20852C9.16421 6.20852 9.5 6.54431 9.5 6.95852C9.5 7.37273 9.16421 7.70852 8.75 7.70852L1.75 7.70852C1.33579 7.70852 1 7.37273 1 6.95852C1 6.54431 1.33579 6.20852 1.75 6.20852H8.75Z\"/><path fill=\"currentColor\" d=\"M14.75 16.2085C14.3358 16.2085 14 16.5443 14 16.9585C14 17.3727 14.3358 17.7085 14.75 17.7085H21.75C22.1642 17.7085 22.5 17.3727 22.5 16.9585C22.5 16.5443 22.1642 16.2085 21.75 16.2085H14.75Z\"/><path fill=\"currentColor\" d=\"M1 16.9585C1 16.5443 1.33579 16.2085 1.75 16.2085H3.75C4.16421 16.2085 4.5 16.5443 4.5 16.9585C4.5 17.3727 4.16421 17.7085 3.75 17.7085H1.75C1.33579 17.7085 1 17.3727 1 16.9585Z\"/><path fill=\"currentColor\" d=\"M21.75 6.20852C22.1642 6.20852 22.5 6.54431 22.5 6.95852C22.5 7.37273 22.1642 7.70852 21.75 7.70852L19.75 7.70852C19.3358 7.70852 19 7.37273 19 6.95852C19 6.54431 19.3358 6.20852 19.75 6.20852H21.75Z\"/>"
 };
 const icon = name => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 document.querySelectorAll('[data-icon]').forEach(el => el.innerHTML = icon(el.dataset.icon));
 
 const MAX_SECONDS = 20;
+const TIMER_STEPS = [0, 3, 5, 10];        // nedtelling i sekunder
 const isTouch = matchMedia('(pointer: coarse)').matches;
 const LONG_SIDE = isTouch ? 720 : 960;   // lengste side på lagrede bilder
 const AHEAD = 12;                        // antall bilder som pakkes ut på forhånd
 const $ = id => document.getElementById(id);
 
 const live = $('live'), out = $('out'), ctx = out.getContext('2d');
-const pill = $('pill'), progress = $('progress');
+const pill = $('pill'), progress = $('progress'), countEl = $('count');
 const camBtn = $('camBtn'), mainBtn = $('mainBtn'), sideBtn = $('sideBtn'), saveBtn = $('saveBtn');
 const dirRev = $('dirRev'), dirFwd = $('dirFwd');
-const loopBtn = $('loopBtn'), soundBtn = $('soundBtn');
+const loopBtn = $('loopBtn'), soundBtn = $('soundBtn'), timerBtn = $('timerBtn');
+const voiceBtn = $('voiceBtn'), voicePanel = $('voicePanel'), folderBtn = $('folderBtn');
 const pitchInput = $('pitch'), pitchVal = $('pitchVal'), pitchReset = $('pitchReset');
 
 const grab = document.createElement('canvas');
@@ -364,93 +288,101 @@ let pendingEncodes = 0, clipId = 0;
 const cache = new Map();   // indeks -> ImageBitmap (bare bildene rundt det som vises)
 const decoding = new Map();
 let recording = false, recStart = 0;
+let counting = false, countTimer = null;
 let audioRecorder = null, audioChunks = [];
 let origAudio = null;      // AudioBuffer slik det ble tatt opp
-let direction = 'reverse'; // 'reverse' eller 'forward'
 let audioCtx = null;
 let playing = false, playRaf = null, playSource = null;
-let liveVisible = true;
-let loopOn = true, soundOn = true, hasMic = true;
-let procFwd = null, procRev = null, pitchSemis = 0, exporting = false;
+let liveVisible = true, hasMic = true;
+let procFwd = null, procRev = null, exporting = false;
 const fsSupported = 'showDirectoryPicker' in window;
 let dirHandle = null;      // mappen videoene lagres i
 
+// Innstillinger huskes mellom gangene
+const settings = { direction: 'reverse', loopOn: true, soundOn: true, timerSecs: 3, pitchSemis: 0 };
+try { Object.assign(settings, JSON.parse(localStorage.getItem('revers-settings') || '{}')); } catch (e) {}
+let { direction, loopOn, soundOn, timerSecs, pitchSemis } = settings;
+pitchInput.value = pitchSemis;
+function saveSettings() {
+  try { localStorage.setItem('revers-settings', JSON.stringify({ direction, loopOn, soundOn, timerSecs, pitchSemis })); } catch (e) {}
+}
+
 const hasClip = () => frames.length >= 2 && !recording;
 const fmt = ms => { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const signed = v => (v > 0 ? '+' : '') + v;
 
 // ---------- Oppdater hele grensesnittet ut fra tilstanden ----------
 function render() {
   const clipMode = !liveVisible && hasClip();
+  const busy = recording || counting;
+  document.body.classList.toggle('busy', busy);
+  document.body.classList.toggle('nocam', !stream);
 
-  // Hovedknapp: opptak i kameramodus, spill/stopp i klippmodus
+  // Hovedknapp: opptak i kameramodus (avbryter under nedtelling), spill/stopp i klippmodus
   mainBtn.disabled = !stream || exporting;
-  mainBtn.classList.toggle('recording', recording);
-  mainBtn.classList.toggle('clip', clipMode);
-  if (clipMode) {
+  mainBtn.classList.toggle('recording', busy);
+  mainBtn.classList.toggle('clip', clipMode && !busy);
+  if (clipMode && !busy) {
     $('mainIcon').innerHTML = icon(playing ? 'stop-bold' : 'play-bold');
     mainBtn.setAttribute('aria-label', playing ? 'Stopp' : 'Spill av');
   } else {
     $('mainIcon').innerHTML = '';
-    mainBtn.setAttribute('aria-label', recording ? 'Stopp opptak' : 'Ta opp');
+    mainBtn.setAttribute('aria-label', recording ? 'Stopp opptak' : counting ? 'Avbryt' : 'Ta opp');
   }
 
   // Sideknapp: tilbake til kamera (fra klipp) eller se klippet igjen (fra kamera)
-  if (clipMode) {
-    $('sideIcon').innerHTML = icon('videocamera-bold'); $('sideLabel').textContent = 'Nytt opptak';
-    sideBtn.disabled = exporting;
-  } else {
-    $('sideIcon').innerHTML = icon('play-bold'); $('sideLabel').textContent = 'Se klippet';
-    sideBtn.disabled = !hasClip() || recording;
-  }
+  $('sideIcon').innerHTML = icon(clipMode ? 'videocamera-bold' : 'play-bold');
+  sideBtn.setAttribute('aria-label', clipMode ? 'Nytt opptak' : 'Se klippet');
+  sideBtn.title = sideBtn.getAttribute('aria-label');
+  sideBtn.disabled = clipMode ? exporting : (!hasClip() || busy);
 
   $('saveIcon').innerHTML = icon('download-minimalistic-bold');
-  $('saveLabel').textContent = exporting ? 'Lagrer…' : 'Lagre';
   saveBtn.disabled = !hasClip() || exporting;
+  saveBtn.classList.toggle('working', exporting);
 
   dirRev.classList.toggle('on', direction === 'reverse');
   dirFwd.classList.toggle('on', direction === 'forward');
-  dirRev.disabled = dirFwd.disabled = recording || exporting;
+  dirRev.disabled = dirFwd.disabled = busy || exporting;
 
-  pitchInput.disabled = exporting;
-  pitchReset.disabled = exporting || +pitchInput.value === 0;
-  const v = +pitchInput.value; pitchVal.textContent = (v > 0 ? '+' : '') + v;
-
+  $('timerVal').textContent = timerSecs ? timerSecs + 's' : '';
+  timerBtn.setAttribute('aria-pressed', timerSecs > 0);
   loopBtn.setAttribute('aria-pressed', loopOn);
   soundBtn.setAttribute('aria-pressed', soundOn && hasMic);
-  soundBtn.disabled = !hasMic || recording || exporting;
+  soundBtn.disabled = !hasMic || exporting;
   $('soundIcon').innerHTML = icon(soundOn && hasMic ? 'volume-loud-bold' : 'volume-cross-bold');
-  $('flipBtn').hidden = !(stream && multiCam && liveVisible && !recording && !exporting);
-  $('folderName').textContent = dirHandle ? dirHandle.name : 'Velg mappe';
-  $('folderBtn').setAttribute('aria-pressed', !!dirHandle);
-  $('folderBtn').disabled = exporting;
 
-  // Statuspille
-  if (recording) {
-    pill.className = 'pill show';
-  } else if (playing) {
-    pill.className = 'pill show play';
-    pill.innerHTML = icon(direction === 'forward' ? 'rewind-forward-bold' : 'rewind-back-bold') +
-      (direction === 'forward' ? 'Forlengs' : 'Baklengs') + (pitchSemis ? ` · stemme ${pitchSemis > 0 ? '+' : ''}${pitchSemis}` : '');
-  } else {
-    pill.className = 'pill';
-  }
+  const v = +pitchInput.value;
+  pitchVal.textContent = signed(v);
+  // Knappen lyser når stemmen er endret; tallet vises i panelet
+  voiceBtn.setAttribute('aria-pressed', v !== 0 || !voicePanel.hidden);
+  voiceBtn.title = v ? 'Stemme ' + signed(v) : 'Stemme';
+  pitchInput.disabled = exporting;
+  pitchReset.disabled = exporting || v === 0;
+
+  folderBtn.hidden = !fsSupported || isTouch;
+  $('folderName').textContent = dirHandle ? dirHandle.name : '';
+  folderBtn.setAttribute('aria-pressed', !!dirHandle);
+  folderBtn.disabled = exporting;
+
+  $('flipBtn').hidden = !(stream && multiCam && liveVisible && !busy && !exporting);
+  if (!recording) pill.className = 'pill glass';
 }
 
 let toastTimer = null;
 function toast(text, ok = true) {
   const t = $('toast');
-  t.className = 'toast show' + (ok ? '' : ' err');
+  t.className = 'toast glass show' + (ok ? '' : ' err');
   $('toastIcon').innerHTML = icon(ok ? 'check-circle-bold' : 'danger-circle-bold');
   $('toastText').textContent = text;
   $('toastBtn').hidden = true;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), ok ? 3500 : 7000);
+  toastTimer = setTimeout(() => t.classList.remove('show'), ok ? 3000 : 6000);
 }
 
 // Melding med knapp (blir stående til den trykkes eller lukkes)
 function toastAction(text, label, iconName, onTap) {
   const t = $('toast'), b = $('toastBtn');
-  t.className = 'toast show action';
+  t.className = 'toast glass show action';
   $('toastIcon').innerHTML = icon('check-circle-bold');
   $('toastText').textContent = text;
   b.innerHTML = icon(iconName) + label; b.hidden = false;
@@ -459,16 +391,11 @@ function toastAction(text, label, iconName, onTap) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 30000);
 }
 
-// Bildeflaten følger formatet på det som vises (kamera eller klipp)
-const stage = document.querySelector('.stage');
-function setAspect(w, h) { if (w && h) stage.style.setProperty('--arn', (w / h).toFixed(4)); }
-
 function showLive(on) {
   liveVisible = on;
   live.style.display = on ? 'block' : 'none';
   out.style.display = on ? 'none' : 'block';
-  if (on) { setAspect(live.videoWidth, live.videoHeight); live.play && live.play().catch(() => {}); }
-  else setAspect(clipW, clipH);
+  if (on && live.play) live.play().catch(() => {});
   render();
 }
 
@@ -489,15 +416,14 @@ async function startCamera(want) {
   } catch (e) {
     try { next = await navigator.mediaDevices.getUserMedia({ video }); hasMic = false; }
     catch (e2) {
-      if (!stream) $('emptyMsg').textContent = 'Fikk ikke tilgang til kameraet: ' + e2.message;
+      if (!stream) { $('emptyMsg').textContent = 'Fikk ikke tilgang til kameraet.'; $('emptyMsg').hidden = false; }
       else toast('Fikk ikke byttet kamera.', false);
       return;
     }
   }
   if (stream) stream.getTracks().forEach(t => t.stop());
   stream = next;
-  const settings = stream.getVideoTracks()[0].getSettings();
-  facing = settings.facingMode || want;
+  facing = stream.getVideoTracks()[0].getSettings().facingMode || want;
   live.classList.toggle('mirror', mirrored());
   live.srcObject = stream;
   $('empty').style.display = 'none';
@@ -510,8 +436,6 @@ async function startCamera(want) {
 
 camBtn.onclick = () => { unlockAudio(); startCamera('user'); };
 $('flipBtn').onclick = () => startCamera(facing === 'environment' ? 'user' : 'environment');
-live.addEventListener('loadedmetadata', () => { if (liveVisible) setAspect(live.videoWidth, live.videoHeight); });
-live.addEventListener('resize', () => { if (liveVisible) setAspect(live.videoWidth, live.videoHeight); });
 
 // iPhone/iPad spiller bare lyd hvis lyden «låses opp» fra et trykk
 function unlockAudio() {
@@ -522,10 +446,54 @@ function unlockAudio() {
 }
 document.addEventListener('pointerdown', unlockAudio, true);
 
+// ---------- Nedtelling ----------
+function beep(freq) {
+  try {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = freq; o.connect(g); g.connect(audioCtx.destination);
+    const t = audioCtx.currentTime;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.18, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+    o.start(t); o.stop(t + 0.13);
+  } catch (e) {}
+}
+
+function showCount(n) {
+  countEl.hidden = false;
+  countEl.innerHTML = `<span>${n}</span>`;
+  countEl.classList.remove('tick'); void countEl.offsetWidth; countEl.classList.add('tick');
+  beep(880);
+}
+
+function startCountdown() {
+  if (!timerSecs) { startRecording(); return; }
+  stopPlayback();
+  voicePanel.hidden = true;
+  counting = true;
+  let n = timerSecs;
+  showCount(n);
+  render();
+  countTimer = setInterval(() => {
+    n--;
+    if (n > 0) { showCount(n); return; }
+    clearInterval(countTimer); countTimer = null;
+    counting = false; countEl.hidden = true;
+    startRecording();
+  }, 1000);
+}
+
+function cancelCountdown() {
+  clearInterval(countTimer); countTimer = null;
+  counting = false; countEl.hidden = true;
+  render();
+}
+
 mainBtn.onclick = () => {
-  if (recording) stopRecording();
+  if (counting) cancelCountdown();
+  else if (recording) stopRecording();
   else if (!liveVisible && hasClip()) playing ? (stopPlayback(), render()) : startPlayback();
-  else startRecording();
+  else startCountdown();
 };
 
 // Fra et klipp går «Nytt opptak» bare tilbake til kameraet – opptak starter først ved neste trykk.
@@ -539,6 +507,7 @@ function clearCache() {
 
 function startRecording() {
   stopPlayback();
+  voicePanel.hidden = true;
   clipId++; clearCache();
   frames = []; origAudio = procFwd = procRev = null; audioChunks = [];
   // Klippet får samme format som kameraet (stående på mobil, liggende på Mac)
@@ -547,6 +516,7 @@ function startRecording() {
   clipW = Math.round(vw * s / 2) * 2; clipH = Math.round(vh * s / 2) * 2;
   grab.width = clipW; grab.height = clipH;
   recording = true; recStart = performance.now();
+  pill.className = 'pill glass show';
   showLive(true);
 
   const audioTracks = stream.getAudioTracks();
@@ -565,7 +535,7 @@ function captureLoop() {
   if (t >= MAX_SECONDS * 1000) { stopRecording(); return; }
   progress.style.width = (t / (MAX_SECONDS * 1000) * 100) + '%';
   progress.style.background = 'var(--red)';
-  pill.innerHTML = `<span class="dot"></span>${fmt(t)} / ${fmt(MAX_SECONDS * 1000)}`;
+  pill.innerHTML = `<span class="dot"></span>${fmt(t)}`;
 
   // Tegn bildet (speilvendt for frontkamera, som forhåndsvisningen) og lagre som JPEG
   const vw = live.videoWidth, vh = live.videoHeight;
@@ -606,7 +576,7 @@ async function stopRecording() {
   await new Promise(r => { const check = () => pendingEncodes <= 0 ? r() : setTimeout(check, 20); check(); });
   frames.sort((a, b) => a.t - b.t);
   out.width = clipW; out.height = clipH;
-  if (frames.length < 2) { toast('Klippet ble for kort – prøv igjen.', false); render(); return; }
+  if (frames.length < 2) { toast('For kort – prøv igjen.', false); render(); return; }
   startPlayback(); // spiller i valgt retning
 }
 
@@ -683,8 +653,6 @@ function reverseBuffer(buf) {
 }
 
 // ---------- Avspilling ----------
-// Spill av i valgt retning (direction). destNode = valgfri lydmål (for eksport).
-// onEnd kalles når én runde er ferdig.
 // Pakker ut et JPEG-bilde til ImageBitmap (gjenbrukes hvis det allerede er gjort)
 function decode(i) {
   if (cache.has(i)) return Promise.resolve(cache.get(i));
@@ -712,6 +680,7 @@ function prefetch(idx, step) {
   });
 }
 
+// Spill av i valgt retning. destNode = valgfri lydmål (for eksport). onEnd kalles når én runde er ferdig.
 let playToken = 0;
 function startPlayback({ destNode = null, once = false, onEnd = null } = {}) {
   if (!hasClip()) return;
@@ -773,21 +742,30 @@ function stopPlayback() {
 
 // ---------- Innstillinger ----------
 function setDirection(dir) {
-  direction = dir;
+  direction = dir; saveSettings();
   if (hasClip()) startPlayback(); else render();
 }
 dirRev.onclick = () => setDirection('reverse');
 dirFwd.onclick = () => setDirection('forward');
 
-loopBtn.onclick = () => { loopOn = !loopOn; render(); };
+timerBtn.onclick = () => {
+  timerSecs = TIMER_STEPS[(TIMER_STEPS.indexOf(timerSecs) + 1) % TIMER_STEPS.length];
+  saveSettings(); render();
+};
+loopBtn.onclick = () => { loopOn = !loopOn; saveSettings(); render(); };
 soundBtn.onclick = () => {
-  soundOn = !soundOn;
+  soundOn = !soundOn; saveSettings();
   if (playing) startPlayback(); else render();
 };
 
+voiceBtn.onclick = () => { voicePanel.hidden = !voicePanel.hidden; render(); };
+document.addEventListener('pointerdown', e => {
+  if (!voicePanel.hidden && !voicePanel.contains(e.target) && !voiceBtn.contains(e.target)) { voicePanel.hidden = true; render(); }
+});
+
 function commitPitch() {
   if (+pitchInput.value === pitchSemis) { render(); return; }
-  pitchSemis = +pitchInput.value;
+  pitchSemis = +pitchInput.value; saveSettings();
   applyPitch();
   if (playing && !exporting) startPlayback(); // hør endringen med en gang
   else render();
@@ -796,7 +774,7 @@ pitchInput.addEventListener('input', render);
 pitchInput.addEventListener('change', commitPitch);
 pitchReset.onclick = () => { pitchInput.value = 0; commitPitch(); };
 
-// ---------- Lagringsmappe (uten server) ----------
+// ---------- Lagringsmappe (Chrome på datamaskin) ----------
 // Chrome lar siden skrive til en mappe du velger. Valget huskes i IndexedDB.
 function kv(mode, fn) {
   return new Promise((resolve, reject) => {
@@ -826,7 +804,6 @@ async function chooseDir() {
 }
 
 // Må kalles direkte fra et klikk, fordi Chrome bare spør om tilgang da.
-// Gir mappen, eller null hvis brukeren avbrøt.
 async function ensureDir() {
   if (!dirHandle) return chooseDir();
   const opts = { mode: 'readwrite' };
@@ -837,8 +814,6 @@ async function ensureDir() {
   return chooseDir(); // tilgang nektet eller mappen borte – velg på nytt
 }
 
-const folderBtn = $('folderBtn');
-folderBtn.hidden = !fsSupported;
 folderBtn.onclick = () => chooseDir();
 if (fsSupported) kvGet('dir').then(h => { if (h) { dirHandle = h; render(); } }).catch(() => {});
 
@@ -863,8 +838,9 @@ saveBtn.onclick = async () => {
   let dir = null;
   if (fsSupported) {
     dir = await ensureDir();
-    if (!dir) { toast('Lagring avbrutt – ingen mappe valgt.', false); return; }
+    if (!dir) return;
   }
+  voicePanel.hidden = true;
   const vStream = out.captureStream(30);
   let dest = null;
   if (currentAudio() && soundOn) {
@@ -885,31 +861,31 @@ saveBtn.onclick = async () => {
     if (dir) {
       try {
         await writeToDir(dir, name, blob);
-        toast(`Lagret i «${dir.name}»: ${name}`);
+        toast(`Lagret i ${dir.name}`);
       } catch (e) {
         console.warn('Kunne ikke skrive til mappen', e);
         download(name, blob);
-        toast('Fikk ikke skrevet til mappen – lastet ned i stedet.', false);
+        toast('Lastet ned i stedet', false);
       }
     } else {
       const file = new File([blob], name, { type: blob.type });
       if (isTouch && navigator.canShare && navigator.canShare({ files: [file] })) {
         // Mobil: delingsmenyen lar deg lagre til Bilder/Galleri eller Filer.
         // Den må åpnes fra et trykk, så vi viser en knapp når videoen er klar.
-        toastAction('Videoen er klar', 'Lagre video', 'share-bold', async () => {
+        toastAction('Klar', 'Lagre', 'share-bold', async () => {
           try { await navigator.share({ files: [file], title: 'Revers' }); }
-          catch (e) { if (e.name !== 'AbortError') { download(name, blob); toast('Lastet ned i stedet.', false); } }
+          catch (e) { if (e.name !== 'AbortError') { download(name, blob); toast('Lastet ned i stedet', false); } }
         });
       } else if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
         // Lokal server (valgfri): lagrer i videoer/
         try {
           const res = await fetch('/save', { method: 'POST', headers: { 'X-Filename': name }, body: blob });
           if (!res.ok) throw new Error(res.status);
-          toast('Lagret: ' + (await res.json()).saved);
-        } catch (e) { download(name, blob); toast('Lastet ned til Nedlastinger.', false); }
+          toast('Lagret i ' + (await res.json()).saved.split('/')[0]);
+        } catch (e) { download(name, blob); toast('Lastet ned', false); }
       } else {
         download(name, blob);
-        toast('Lastet ned til Nedlastinger.', true);
+        toast('Lastet ned');
       }
     }
     exporting = false;
@@ -921,6 +897,7 @@ saveBtn.onclick = async () => {
 };
 
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !voicePanel.hidden) { voicePanel.hidden = true; render(); return; }
   if (e.code !== 'Space' || e.target.tagName === 'INPUT' || e.repeat) return;
   e.preventDefault();
   if (e.target.blur) e.target.blur(); // hindrer at en fokusert knapp også trykkes
@@ -938,22 +915,16 @@ const installBtn = $('installBtn');
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();          // vis vår egen knapp i stedet for Chromes standard
   installPrompt = e;
-  installBtn.hidden = false; $('tag').hidden = true;
+  installBtn.hidden = false;
 });
 installBtn.onclick = async () => {
   if (!installPrompt) return;
   installPrompt.prompt();
-  const { outcome } = await installPrompt.userChoice;
+  await installPrompt.userChoice;
   installPrompt = null;
-  installBtn.hidden = true; $('tag').hidden = false;
-  if (outcome === 'accepted') toast('Revers er installert!');
+  installBtn.hidden = true;
 };
-window.addEventListener('appinstalled', () => { installBtn.hidden = true; $('tag').hidden = false; });
-
-// iPhone/iPad har ingen installer-knapp – vis hvordan man legger appen på Hjem-skjermen
-const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
-$('iosHint').hidden = !(isIOS && !standalone);
+window.addEventListener('appinstalled', () => { installBtn.hidden = true; });
 </script>
 </body>
 </html>
