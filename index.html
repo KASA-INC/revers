@@ -452,7 +452,7 @@ function goToCamera() {
 // Frontkameraet speilvendes (som et speil), bakkameraet vises som det er
 const mirrored = () => facing !== 'environment';
 
-async function startCamera(want) {
+async function startCamera(want, quiet = false) {
   const open = async mode => {
     const video = { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } };
     try { const s = await navigator.mediaDevices.getUserMedia({ video, audio: true }); hasMic = true; return s; }
@@ -466,11 +466,15 @@ async function startCamera(want) {
   catch (e) {
     // Byttet feilet – prøv å få tilbake kameraet vi hadde
     if (prevFacing) { try { next = await open(prevFacing); } catch (e2) {} }
-    if (!next) { $('emptyMsg').textContent = 'Fikk ikke tilgang til kameraet.'; $('emptyMsg').hidden = false; $('empty').style.display = ''; render(); return; }
+    if (!next) {
+      if (!quiet) { $('emptyMsg').textContent = 'Fikk ikke tilgang til kameraet.'; $('emptyMsg').hidden = false; }
+      $('empty').style.display = ''; render(); return;
+    }
     toast('Fikk ikke byttet kamera.', false);
   }
   stream = next;
   facing = stream.getVideoTracks()[0].getSettings().facingMode || want;
+  try { localStorage.setItem('revers-facing', facing); } catch (e) {} // husk front/bak til neste gang
 
   // Nytt videoelement for hver kamerastrøm. Safari på iPhone beholder ellers
   // størrelsen fra forrige kamera, så bildet blir mindre med svarte kanter.
@@ -490,7 +494,17 @@ async function startCamera(want) {
   showLive(true);
 }
 
-camBtn.onclick = () => { unlockAudio(); startCamera('user'); };
+const savedFacing = () => { try { return localStorage.getItem('revers-facing') || 'user'; } catch (e) { return 'user'; } };
+camBtn.onclick = () => { unlockAudio(); startCamera(savedFacing()); };
+
+// Har du allerede gitt tilgang, starter kameraet med en gang – uten trykk og uten spørsmål
+async function autoStartCamera() {
+  try {
+    if (!navigator.permissions) return;
+    const cam = await navigator.permissions.query({ name: 'camera' });
+    if (cam.state === 'granted' && !stream) startCamera(savedFacing(), true);
+  } catch (e) { /* nettleseren støtter ikke spørringen – vis knappen som før */ }
+}
 let switching = false;
 $('flipBtn').onclick = async () => {
   if (switching) return;
@@ -967,6 +981,7 @@ document.addEventListener('keydown', e => {
 });
 
 render();
+autoStartCamera();
 
 // ---------- Installering (Chrome) ----------
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
