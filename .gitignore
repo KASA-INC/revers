@@ -1,0 +1,8 @@
+# Opptakene dine skal aldri publiseres
+videoer/
+*.mp4
+*.webm
+
+# Lokale innstillinger og systemfiler
+.claude/
+.DS_Store

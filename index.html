@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Revers</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="icons/favicon-16.png" type="image/png" sizes="16x16">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0b0e">
+<meta name="apple-mobile-web-app-title" content="Revers">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root {
+    --bg: #0a0b0e;
+    --surface: #16171c;
+    --surface-2: #1f2027;
+    --line: rgba(255,255,255,.07);
+    --text: #f4f5f7;
+    --muted: #8d909a;
+    --red: #ff3b4a;
+    --blue: #3e8bff;
+    --radius-xl: 28px;
+    --radius-lg: 22px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh; background: var(--bg); color: var(--text);
+    font: 15px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    display: flex; justify-content: center; padding: 20px 16px 32px;
+    background-image: radial-gradient(1200px 500px at 50% -200px, rgba(62,139,255,.10), transparent 70%);
+  }
+  .app { width: 100%; max-width: 920px; display: flex; flex-direction: column; gap: 16px; }
+  /* På store skjermer: krymp bildet slik at alt får plass i vinduets høyde */
+  @media (min-width: 721px) {
+    .app { max-width: max(560px, min(920px, calc((100vh - 420px) * 16 / 9))); }
+  }
+  svg.i { width: 1em; height: 1em; display: block; flex: none; }
+
+  /* Topp */
+  header { display: flex; align-items: center; justify-content: space-between; padding: 0 6px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: -.2px; }
+  .logo .mark {
+    width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; font-size: 20px;
+    background: linear-gradient(135deg, var(--red), #ff7a45); color: #fff;
+  }
+  .logo .flip { display: inline-block; transform: scaleX(-1); }
+  header .tag { color: var(--muted); font-size: 13px; }
+  .install {
+    display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; border: 0;
+    background: var(--text); color: #0b0c0f; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+    transition: transform .15s;
+  }
+  .install .i { font-size: 18px; }
+  .install:hover { transform: scale(1.03); }
+  .install[hidden] { display: none; }
+
+  /* Bilde */
+  .stage {
+    position: relative; width: 100%; aspect-ratio: 16/9; background: #000;
+    border-radius: var(--radius-xl); overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.45);
+  }
+  video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  video { transform: scaleX(-1); }
+  .pill {
+    position: absolute; top: 14px; left: 14px; display: none; align-items: center; gap: 8px;
+    padding: 7px 13px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    background: rgba(10,11,14,.55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    font-variant-numeric: tabular-nums;
+  }
+  .pill.show { display: inline-flex; }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); animation: pulse 1.2s infinite; }
+  .pill.play { color: #cfe1ff; }
+  .pill.play .i { font-size: 16px; color: var(--blue); }
+  @keyframes pulse { 50% { opacity: .25; } }
+  .track { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255,255,255,.12); }
+  .track div { height: 100%; width: 0; background: var(--red); }
+
+  .empty {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; text-align: center; padding: 20px; color: var(--muted);
+    background: radial-gradient(circle at 50% 45%, #1b1d24, #0d0e12 70%);
+  }
+  .empty .big {
+    display: inline-flex; align-items: center; gap: 10px; padding: 16px 26px; border-radius: 999px; border: 0;
+    background: var(--text); color: #0b0c0f; font: inherit; font-weight: 700; font-size: 16px; cursor: pointer;
+    transition: transform .15s;
+  }
+  .empty .big .i { font-size: 22px; }
+  .empty .big:hover { transform: scale(1.03); }
+  .empty p { margin: 0; max-width: 340px; font-size: 14px; }
+
+  /* Kontrollpanel */
+  .dock {
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+    padding: 14px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-xl);
+  }
+  .side { display: flex; }
+  .side.right { justify-content: flex-end; }
+  .tool {
+    display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 84px;
+    padding: 8px 10px; border: 0; border-radius: 18px; background: transparent; color: var(--text);
+    font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: background .15s, opacity .15s;
+  }
+  .tool .ic {
+    width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--surface-2); font-size: 24px;
+  }
+  .tool:hover:not(:disabled) .ic { background: #2a2c35; }
+  .tool:disabled { opacity: .3; cursor: default; }
+  .tool[hidden] { display: none; }
+
+  .main {
+    width: 78px; height: 78px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+    display: grid; place-items: center; position: relative; color: #fff; font-size: 30px;
+    background: transparent; transition: transform .15s;
+  }
+  .main::before { /* ytre ring */
+    content: ""; position: absolute; inset: 0; border-radius: 50%; border: 4px solid rgba(255,255,255,.9);
+  }
+  .main .core {
+    width: 62px; height: 62px; border-radius: 50%; background: var(--red); display: grid; place-items: center;
+    transition: all .2s ease;
+  }
+  .main.recording .core { width: 34px; height: 34px; border-radius: 9px; }
+  .main.clip::before { border-color: rgba(62,139,255,.35); }
+  .main.clip .core { background: var(--blue); }
+  .main:hover:not(:disabled) { transform: scale(1.04); }
+  .main:disabled { opacity: .3; cursor: default; }
+
+  /* Innstillinger */
+  .settings { display: flex; flex-wrap: wrap; gap: 12px; }
+  .settings .card { flex: none; }
+  .settings .card.voice { flex: 1 1 380px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
+    padding: 12px 14px; display: flex; align-items: center; gap: 12px; min-width: 0;
+  }
+  .label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .label .i { font-size: 18px; color: var(--text); }
+
+  .seg { display: flex; background: var(--surface-2); border-radius: 999px; padding: 4px; gap: 2px; }
+  .seg button {
+    display: flex; align-items: center; gap: 7px; padding: 9px 15px; border: 0; border-radius: 999px;
+    background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: background .2s, color .2s;
+  }
+  .seg button .i { font-size: 18px; }
+  .seg button.on { background: var(--blue); color: #fff; }
+  .seg button:disabled { cursor: default; }
+
+  .voice { flex: 1; }
+  .voice input[type=range] { flex: 1; min-width: 80px; accent-color: var(--blue); height: 24px; }
+  .voice .val {
+    min-width: 44px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums;
+    background: var(--surface-2); border-radius: 999px; padding: 5px 8px; font-size: 13px;
+  }
+  .voice .end { color: var(--muted); font-size: 12px; }
+  .icon-btn {
+    width: 34px; height: 34px; border-radius: 50%; border: 0; display: grid; place-items: center; flex: none;
+    background: var(--surface-2); color: var(--text); font-size: 17px; cursor: pointer;
+  }
+  .icon-btn:hover:not(:disabled) { background: #2a2c35; }
+  .icon-btn:disabled { opacity: .35; cursor: default; }
+
+  .toggles { gap: 8px; }
+  .chip {
+    display: flex; align-items: center; gap: 7px; padding: 9px 14px; border-radius: 999px; border: 0;
+    background: var(--surface-2); color: var(--muted); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: background .2s, color .2s;
+  }
+  .chip .i { font-size: 18px; }
+  .chip[aria-pressed="true"] { background: rgba(62,139,255,.16); color: #9cc3ff; }
+  .chip:disabled { opacity: .4; cursor: default; }
+
+  footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: 12px; padding: 0 6px; }
+  footer a { color: inherit; }
+  kbd { font: inherit; background: var(--surface-2); border-radius: 6px; padding: 1px 6px; color: var(--text); }
+
+  /* Melding */
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+    display: flex; align-items: center; gap: 10px; max-width: calc(100% - 32px);
+    padding: 12px 18px; border-radius: 999px; background: #24262e; border: 1px solid var(--line);
+    box-shadow: 0 12px 40px rgba(0,0,0,.5); font-size: 14px; transition: all .25s ease;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast .i { font-size: 20px; color: #4cd97b; }
+  .toast.err .i { color: #ffb020; }
+
+  @media (max-width: 720px) {
+    .settings .card { flex: 1 1 100%; }
+    .card { flex-wrap: wrap; }
+    .seg { flex: 1; } .seg button { flex: 1; justify-content: center; }
+    .tool { min-width: 64px; }
+    .stage { border-radius: var(--radius-lg); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo"><span class="mark" data-icon="rewind-back-bold"></span><span>Re<span class="flip">vers</span></span></div>
+    <span class="tag" id="tag">Film – og se det baklengs</span>
+    <button id="installBtn" class="install" hidden><span data-icon="download-minimalistic-bold"></span>Installer app</button>
+  </header>
+
+  <div class="stage">
+    <video id="live" autoplay muted playsinline></video>
+    <canvas id="out"></canvas>
+    <div id="pill" class="pill"></div>
+    <div class="track"><div id="progress"></div></div>
+    <div id="empty" class="empty">
+      <button id="camBtn" class="big"><span data-icon="videocamera-record-bold"></span>Start kamera</button>
+      <p id="emptyMsg">Gi tilgang til kamera og mikrofon for å begynne.</p>
+    </div>
+  </div>
+
+  <div class="dock">
+    <div class="side">
+      <button id="sideBtn" class="tool" disabled>
+        <span class="ic" id="sideIcon"></span><span id="sideLabel">Kamera</span>
+      </button>
+    </div>
+    <button id="mainBtn" class="main" disabled aria-label="Ta opp"><span class="core" id="mainIcon"></span></button>
+    <div class="side right">
+      <button id="saveBtn" class="tool" disabled>
+        <span class="ic" id="saveIcon"></span><span id="saveLabel">Lagre</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="settings">
+    <div class="card">
+      <div class="seg" role="group" aria-label="Retning">
+        <button id="dirRev" class="on"><span data-icon="rewind-back-bold"></span>Baklengs</button>
+        <button id="dirFwd"><span data-icon="rewind-forward-bold"></span>Forlengs</button>
+      </div>
+    </div>
+    <div class="card toggles">
+      <button id="loopBtn" class="chip" aria-pressed="true"><span data-icon="repeat-bold"></span>Loop</button>
+      <button id="soundBtn" class="chip" aria-pressed="true"><span id="soundIcon"></span>Lyd</button>
+      <button id="folderBtn" class="chip" title="Velg mappe videoene lagres i"><span data-icon="folder-bold"></span><span id="folderName">Velg mappe</span></button>
+    </div>
+    <div class="card voice">
+      <span class="label"><span data-icon="microphone-bold"></span>Stemme</span>
+      <span class="end">Dypere</span>
+      <input type="range" id="pitch" min="-12" max="12" step="1" value="0" aria-label="Stemme">
+      <span class="end">Lysere</span>
+      <span class="val" id="pitchVal">0</span>
+      <button id="pitchReset" class="icon-btn" title="Nullstill stemme" disabled><span data-icon="restart-bold"></span></button>
+    </div>
+  </div>
+
+  <footer>
+    <span><kbd>Mellomrom</kbd> tar opp / spiller av · maks 20 sek · lagres i mappen du velger</span>
+    <span>Ikoner: <a href="https://www.figma.com/community/file/1166831539721848736" target="_blank" rel="noopener">Solar</a> av 480 Design (CC BY 4.0)</span>
+  </footer>
+</div>
+
+<div id="toast" class="toast"><span id="toastIcon"></span><span id="toastText"></span></div>
+
+<script>
+// Solar-ikoner (480 Design, CC BY 4.0) via Iconify
+const ICONS = {
+ "folder-bold": "<path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M2.06935 5.25839C2 5.62595 2 6.06722 2 6.94975V14C2 17.7712 2 19.6569 3.17157 20.8284C4.34315 22 6.22876 22 10 22H14C17.7712 22 19.6569 22 20.8284 20.8284C22 19.6569 22 17.7712 22 14V11.7979C22 9.16554 22 7.84935 21.2305 6.99383C21.1598 6.91514 21.0849 6.84024 21.0062 6.76946C20.1506 6 18.8345 6 16.2021 6H15.8284C14.6747 6 14.0979 6 13.5604 5.84678C13.2651 5.7626 12.9804 5.64471 12.7121 5.49543C12.2237 5.22367 11.8158 4.81578 11 4L10.4497 3.44975C10.1763 3.17633 10.0396 3.03961 9.89594 2.92051C9.27652 2.40704 8.51665 2.09229 7.71557 2.01738C7.52976 2 7.33642 2 6.94975 2C6.06722 2 5.62595 2 5.25839 2.06935C3.64031 2.37464 2.37464 3.64031 2.06935 5.25839ZM12.25 10C12.25 9.58579 12.5858 9.25 13 9.25H18C18.4142 9.25 18.75 9.58579 18.75 10C18.75 10.4142 18.4142 10.75 18 10.75H13C12.5858 10.75 12.25 10.4142 12.25 10Z\" clip-rule=\"evenodd\"/>",
+ "videocamera-record-bold": "<path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M2 12.5V11.5C2 8.21252 2 6.56878 2.90796 5.46243C3.07418 5.25989 3.25989 5.07418 3.46243 4.90796C4.56878 4 6.21252 4 9.5 4C12.7875 4 14.4312 4 15.5376 4.90796C15.7401 5.07418 15.9258 5.25989 16.092 5.46243C16.7936 6.3173 16.9531 7.49303 16.9893 9.50002L17.6584 9.17082C19.6042 8.19788 20.5772 7.7114 21.2886 8.15107C22 8.59075 22 9.67853 22 11.8541V12.1459C22 14.3215 22 15.4093 21.2886 15.8489C20.5772 16.2886 19.6042 15.8021 17.6584 14.8292L16.9893 14.5C16.9531 16.507 16.7936 17.6827 16.092 18.5376C15.9258 18.7401 15.7401 18.9258 15.5376 19.092C14.4312 20 12.7875 20 9.5 20C6.21252 20 4.56878 20 3.46243 19.092C3.25989 18.9258 3.07418 18.7401 2.90796 18.5376C2 17.4312 2 15.7875 2 12.5ZM13.5607 9.56066C14.1464 8.97487 14.1464 8.02513 13.5607 7.43934C12.9749 6.85355 12.0251 6.85355 11.4393 7.43934C10.8536 8.02513 10.8536 8.97487 11.4393 9.56066C12.0251 10.1464 12.9749 10.1464 13.5607 9.56066Z\" clip-rule=\"evenodd\"/>",
+ "videocamera-bold": "<path fill=\"currentColor\" d=\"M2 11.5V12.5C2 15.7875 2 17.4312 2.90796 18.5376C3.07418 18.7401 3.25989 18.9258 3.46243 19.092C4.56878 20 6.21252 20 9.5 20C12.7875 20 14.4312 20 15.5376 19.092C15.7401 18.9258 15.9258 18.7401 16.092 18.5376C16.7936 17.6827 16.9531 16.507 16.9893 14.5L17.6584 14.8292C19.6042 15.8021 20.5772 16.2886 21.2886 15.8489C22 15.4093 22 14.3215 22 12.1459V11.8541C22 9.67853 22 8.59075 21.2886 8.15107C20.5772 7.7114 19.6042 8.19788 17.6584 9.17082L16.9893 9.50002C16.9531 7.49303 16.7936 6.3173 16.092 5.46243C15.9258 5.25989 15.7401 5.07418 15.5376 4.90796C14.4312 4 12.7875 4 9.5 4C6.21252 4 4.56878 4 3.46243 4.90796C3.25989 5.07418 3.07418 5.25989 2.90796 5.46243C2 6.56878 2 8.21252 2 11.5Z\"/>",
+ "play-bold": "<path fill=\"currentColor\" d=\"M20.4086 9.35258C22.5305 10.5065 22.5305 13.4935 20.4086 14.6474L7.59662 21.6145C5.53435 22.736 3 21.2763 3 18.9671L3 5.0329C3 2.72368 5.53435 1.26402 7.59661 2.38548L20.4086 9.35258Z\"/>",
+ "stop-bold": "<path fill=\"currentColor\" d=\"M2 12C2 7.28595 2 4.92893 3.46447 3.46447C4.92893 2 7.28595 2 12 2C16.714 2 19.0711 2 20.5355 3.46447C22 4.92893 22 7.28595 22 12C22 16.714 22 19.0711 20.5355 20.5355C19.0711 22 16.714 22 12 22C7.28595 22 4.92893 22 3.46447 20.5355C2 19.0711 2 16.714 2 12Z\"/>",
+ "rewind-back-bold": "<path fill=\"currentColor\" d=\"M21.9998 17.5737L21.9998 6.42632C21.9998 4.57895 20.3991 3.41122 19.0966 4.30838L13 8.76844L13 7.12303C13 5.50658 11.5327 4.48482 10.3388 5.26983L2.92136 10.1468C1.69288 10.9545 1.69288 13.0455 2.92135 13.8532L10.3388 18.7302C11.5327 19.5152 13 18.4934 13 16.877V15.2316L19.0966 19.6916C20.3991 20.5888 21.9998 19.4211 21.9998 17.5737Z\"/>",
+ "rewind-forward-bold": "<path fill=\"currentColor\" d=\"M2 17.5737L2 6.42632C2 4.57895 3.60064 3.41122 4.90312 4.30838L10.9998 8.76844L10.9998 7.12303C10.9998 5.50658 12.467 4.48482 13.661 5.26983L21.0784 10.1468C22.3069 10.9545 22.3069 13.0455 21.0784 13.8532L13.661 18.7302C12.467 19.5152 10.9998 18.4934 10.9998 16.877V15.2316L4.90313 19.6916C3.60065 20.5888 2 19.4211 2 17.5737Z\"/>",
+ "repeat-bold": "<path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M8.46967 2.46967C8.76256 2.17678 9.23744 2.17678 9.53033 2.46967L11.5303 4.46967C11.7448 4.68417 11.809 5.00676 11.6929 5.28701C11.5768 5.56727 11.3033 5.75 11 5.75H9C5.54822 5.75 2.75 8.54822 2.75 12C2.75 15.4517 5.54846 18.25 9.00028 18.25H9.5C9.91421 18.25 10.25 18.5858 10.25 19C10.25 19.4142 9.91421 19.75 9.5 19.75H9.00028C4.72011 19.75 1.25 16.2802 1.25 12C1.25 7.71979 4.71979 4.25 9 4.25H9.18934L8.46967 3.53033C8.17678 3.23744 8.17678 2.76256 8.46967 2.46967ZM13.75 5C13.75 4.58579 14.0858 4.25 14.5 4.25H15C19.2802 4.25 22.75 7.71979 22.75 12C22.75 16.2802 19.2802 19.75 15 19.75H14.8107L15.5303 20.4697C15.8232 20.7626 15.8232 21.2374 15.5303 21.5303C15.2374 21.8232 14.7626 21.8232 14.4697 21.5303L12.4697 19.5303C12.2552 19.3158 12.191 18.9932 12.3071 18.713C12.4232 18.4327 12.6967 18.25 13 18.25H15C18.4518 18.25 21.25 15.4518 21.25 12C21.25 8.54822 18.4518 5.75 15 5.75H14.5C14.0858 5.75 13.75 5.41421 13.75 5Z\" clip-rule=\"evenodd\"/>",
+ "volume-loud-bold": "<path fill=\"currentColor\" d=\"M9.64844 6.19164C11.9868 4.54764 13.1563 3.72547 14.1377 4.08227C14.3259 4.15074 14.5082 4.2504 14.6709 4.37231C15.5192 5.00819 15.584 6.48716 15.7129 9.44555C15.7606 10.541 15.793 11.4787 15.793 12.0002C15.793 12.5218 15.7606 13.4594 15.7129 14.5549C15.584 17.5133 15.5192 18.9923 14.6709 19.6282C14.5082 19.7501 14.3259 19.8497 14.1377 19.9182C13.1563 20.275 11.9868 19.4528 9.64844 17.8088C9.05567 17.3921 8.75916 17.1838 8.42871 17.0627C8.36014 17.0376 8.29091 17.0146 8.2207 16.9954C7.88238 16.9025 7.52711 16.9026 6.81738 16.9026C4.83047 16.9026 3.83649 16.9029 3.08398 16.2678C2.94663 16.1519 2.78259 15.9801 2.6709 15.8362C2.05918 15.0477 2.04026 14.1264 2.00293 12.2844C2.00097 12.1878 2 12.0929 2 12.0002C2 11.9076 2.00097 11.8127 2.00293 11.7161C2.04026 9.87406 2.05918 8.95276 2.6709 8.1643C2.78259 8.02038 2.94663 7.84862 3.08398 7.73266C3.83649 7.09753 4.83047 7.09789 6.81738 7.09789C7.52711 7.09789 7.88238 7.098 8.2207 7.00512C8.29091 6.98584 8.36014 6.96285 8.42871 6.93774C8.75916 6.81667 9.05567 6.6084 9.64844 6.19164Z\"/><path fill=\"currentColor\" d=\"M19.2744 5.42406C19.5925 5.15898 20.0658 5.2018 20.3311 5.51977L19.8369 5.93188C20.3264 5.524 20.332 5.52077 20.332 5.52074L20.3369 5.5266C20.339 5.52917 20.341 5.53294 20.3438 5.53637C20.3494 5.54342 20.357 5.55207 20.3652 5.56274C20.3819 5.58427 20.4037 5.61322 20.4297 5.64965C20.4819 5.72277 20.5519 5.82636 20.6328 5.96117C20.7947 6.23097 21.0014 6.62684 21.2051 7.15649C21.6132 8.21784 22.0049 9.80904 22.0049 12.0002C22.0049 14.1914 21.6132 15.7826 21.2051 16.844C21.0014 17.3736 20.7947 17.7695 20.6328 18.0393C20.5519 18.1741 20.4819 18.2777 20.4297 18.3508C20.4037 18.3873 20.3819 18.4162 20.3652 18.4377C20.357 18.4484 20.3494 18.457 20.3438 18.4641C20.341 18.4675 20.339 18.4713 20.3369 18.4739L20.332 18.4788C20.3308 18.4779 20.3046 18.4584 19.7549 18.0002L20.3311 18.4807C20.0659 18.7987 19.5926 18.8415 19.2744 18.5764C18.9762 18.3277 18.9201 17.8963 19.1328 17.5813L19.1748 17.5256L19.1758 17.5237L19.1777 17.5217L19.1787 17.5198C19.1841 17.5128 19.1944 17.4991 19.209 17.4788C19.2387 17.4371 19.2861 17.3671 19.3457 17.2678C19.4651 17.0689 19.6335 16.7511 19.8047 16.3059C20.1465 15.4173 20.5049 14.0086 20.5049 12.0002C20.5049 9.99187 20.1465 8.58319 19.8047 7.69457C19.6335 7.2494 19.4651 6.93158 19.3457 6.73266C19.2861 6.6334 19.2387 6.56336 19.209 6.52172L19.1787 6.48071L19.1328 6.41918C18.9201 6.10411 18.9762 5.67273 19.2744 5.42406Z\"/><path fill=\"currentColor\" d=\"M17.7568 8.41625C18.0897 8.21905 18.5103 8.34655 18.6953 8.70141V8.70336L18.6963 8.70434L18.6982 8.70727L18.7012 8.7141L18.71 8.73266C18.7166 8.74638 18.725 8.7635 18.7344 8.78442C18.7532 8.8266 18.7776 8.88418 18.8047 8.95629C18.8588 9.10056 18.9254 9.30584 18.9902 9.57543C19.1201 10.1156 19.2412 10.9122 19.2412 12.0002C19.2412 13.0886 19.1201 13.8858 18.9902 14.426C18.9254 14.6958 18.8588 14.9009 18.8047 15.0452C18.7777 15.1172 18.7532 15.1739 18.7344 15.2161C18.725 15.2371 18.7166 15.255 18.71 15.2688L18.7012 15.2864L18.6982 15.2932L18.6963 15.2961L18.6953 15.2981C18.6924 15.2966 18.6521 15.2736 18.0918 14.9416L18.6953 15.2981C18.5103 15.6531 18.0898 15.7824 17.7568 15.5852C17.4268 15.3896 17.3062 14.9475 17.4844 14.594L17.4893 14.5842C17.4955 14.5701 17.5075 14.5419 17.5234 14.4993C17.5555 14.4137 17.6042 14.2689 17.6543 14.0608C17.7543 13.645 17.8623 12.9707 17.8623 12.0002C17.8623 11.0302 17.7542 10.3565 17.6543 9.94067C17.6042 9.73252 17.5555 9.5877 17.5234 9.50219C17.5074 9.45954 17.4956 9.43138 17.4893 9.41723L17.4844 9.40746C17.3062 9.05402 17.4269 8.61191 17.7568 8.41625Z\"/>",
+ "volume-cross-bold": "<path fill=\"currentColor\" d=\"M21.4697 1.46967C21.7626 1.17678 22.2373 1.17678 22.5302 1.46967C22.8228 1.76259 22.823 2.23742 22.5302 2.53022L2.53022 22.5302C2.23742 22.823 1.76259 22.8228 1.46967 22.5302C1.17678 22.2373 1.17678 21.7626 1.46967 21.4697L5.9394 16.999C4.60601 16.9989 3.93015 16.9956 3.33979 16.7226C2.7923 16.4693 2.24418 15.9539 1.95795 15.4228C1.64481 14.8416 1.60875 14.2367 1.5351 13.0283C1.51331 12.6708 1.49996 12.3222 1.49994 11.9999C1.49994 11.6777 1.51332 11.3291 1.5351 10.9716C1.60875 9.76321 1.64502 9.15826 1.95795 8.57709C2.24412 8.04597 2.79224 7.53065 3.33979 7.27729C3.93909 7.00005 4.62612 6.99994 5.99994 6.99994C6.51186 6.99994 6.76857 6.99983 7.01654 6.95795C7.26143 6.91654 7.50025 6.84434 7.72748 6.74408C7.95755 6.64253 8.17212 6.50149 8.59955 6.21967L8.8183 6.07514C11.361 4.39861 12.6328 3.56053 13.7001 3.92475C13.9045 3.99454 14.1025 4.09551 14.2792 4.21967C14.9993 4.7259 15.1992 5.75649 15.3193 7.61908L21.4697 1.46967Z\"/><path fill=\"currentColor\" d=\"M15.4746 10.914C15.4892 11.3338 15.4979 11.6887 15.499 11.9511L15.4999 11.9999C15.4999 12.5319 15.4649 13.4886 15.413 14.6054C15.2729 17.622 15.2026 19.1307 14.2802 19.7792C14.1033 19.9035 13.9047 20.0043 13.7001 20.0742C13.6334 20.0969 13.5656 20.1134 13.497 20.1269C13.4893 20.1284 13.4813 20.1284 13.4736 20.1298C13.4163 20.1402 13.3587 20.1492 13.2997 20.1533C13.2678 20.1555 13.2356 20.1539 13.2031 20.1542C13.1657 20.1546 13.128 20.1563 13.0898 20.1542C13.0578 20.1526 13.0257 20.1478 12.9931 20.1445C12.9517 20.1402 12.9096 20.1368 12.8671 20.1298C12.8319 20.1241 12.7967 20.1159 12.7607 20.1083C12.7231 20.1004 12.6849 20.0928 12.6464 20.083C12.5998 20.071 12.5529 20.0567 12.5048 20.0419C12.4752 20.0328 12.4452 20.0238 12.415 20.0136C12.3587 19.9946 12.3015 19.9738 12.2431 19.9511C12.2192 19.9419 12.1951 19.9327 12.1708 19.9228C12.1118 19.8988 12.0515 19.8733 11.9902 19.8456C11.958 19.8311 11.9254 19.8162 11.8925 19.8007C11.8331 19.7728 11.7726 19.743 11.7109 19.7119C11.6822 19.6974 11.6531 19.683 11.624 19.6679C11.5626 19.6361 11.5001 19.603 11.4365 19.5683C11.3839 19.5397 11.3305 19.5101 11.2763 19.4794C11.2347 19.4559 11.192 19.4328 11.1494 19.4081C11.0803 19.3682 11.0103 19.3261 10.9384 19.2831C10.8897 19.2541 10.84 19.2247 10.79 19.1943C10.7689 19.1815 10.7478 19.1683 10.7265 19.1552C10.5605 19.0535 10.3875 18.944 10.206 18.8281C10.1044 18.7632 10.0003 18.6961 9.8935 18.6269C9.56224 18.4122 9.20447 18.1784 8.8183 17.9238L8.60541 17.7831L15.4746 10.914Z\"/><path fill=\"currentColor\" d=\"M20.2177 6.23627C20.593 6.06156 21.0397 6.22446 21.2148 6.59955C21.6913 7.6222 22.2498 9.38248 22.2499 11.999C22.2499 14.1901 21.8583 15.7824 21.4501 16.8437C21.2466 17.3729 21.0397 17.7683 20.8779 18.038C20.7972 18.1725 20.7269 18.2765 20.6747 18.3496C20.6489 18.3857 20.6269 18.415 20.6103 18.4365C20.6021 18.4471 20.5945 18.4568 20.5888 18.4638C20.5863 18.467 20.5839 18.4702 20.582 18.4726L20.5781 18.4765L20.5771 18.4785C20.5771 18.4785 20.573 18.4765 19.9999 17.999L20.5761 18.4794C20.311 18.7975 19.8377 18.8401 19.5195 18.5751C19.2222 18.3269 19.1657 17.8977 19.3769 17.583L19.4228 17.5214L19.4238 17.5195L19.454 17.4775C19.4838 17.4357 19.5314 17.3655 19.5908 17.2665C19.7101 17.0677 19.8787 16.7503 20.0497 16.3056C20.3915 15.417 20.7499 14.007 20.7499 11.999C20.7498 9.6031 20.2394 8.0584 19.8544 7.23236C19.6801 6.85711 19.8426 6.41114 20.2177 6.23627Z\"/><path fill=\"currentColor\" d=\"M17.8857 8.61029C18.2765 8.47436 18.7043 8.68057 18.8408 9.07123C19.0177 9.579 19.2499 10.5285 19.2499 11.9999C19.2499 13.1094 19.1177 13.9228 18.9765 14.4736C18.906 14.7483 18.8332 14.9574 18.7744 15.1044C18.745 15.1777 18.7186 15.2363 18.6982 15.2792C18.6881 15.3004 18.679 15.319 18.6718 15.333L18.6591 15.3583L18.6572 15.3613L18.6562 15.3622L17.9999 14.9999L18.6552 15.3632C18.4541 15.7252 17.9977 15.8561 17.6357 15.6552C17.2738 15.4541 17.1438 14.9977 17.3447 14.6357C17.3515 14.6212 17.3645 14.5909 17.3818 14.5478C17.4167 14.4606 17.469 14.3124 17.5234 14.1005C17.632 13.6765 17.7499 12.989 17.7499 11.9999C17.7499 10.6896 17.5431 9.90783 17.4238 9.56537C17.2877 9.17433 17.4947 8.74658 17.8857 8.61029Z\"/>",
+ "microphone-bold": "<path fill=\"currentColor\" d=\"M12 2C8.82436 2 6.25 4.57436 6.25 7.75V10.75C6.25 13.9256 8.82436 16.5 12 16.5C14.9214 16.5 17.334 14.3213 17.7015 11.5L13 11.5C12.5858 11.5 12.25 11.1642 12.25 10.75C12.25 10.3358 12.5858 10 13 10L17.75 10V8.5H13C12.5858 8.5 12.25 8.16421 12.25 7.75C12.25 7.33579 12.5858 7 13 7H17.7015C17.334 4.17873 14.9214 2 12 2Z\"/><path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M4 9C4.41421 9 4.75 9.33579 4.75 9.75V10.75C4.75 14.7541 7.99594 18 12 18C16.0041 18 19.25 14.7541 19.25 10.75V9.75C19.25 9.33579 19.5858 9 20 9C20.4142 9 20.75 9.33579 20.75 9.75V10.75C20.75 15.3298 17.2314 19.0879 12.75 19.4683V21.75C12.75 22.1642 12.4142 22.5 12 22.5C11.5858 22.5 11.25 22.1642 11.25 21.75V19.4683C6.7686 19.0879 3.25 15.3298 3.25 10.75V9.75C3.25 9.33579 3.58579 9 4 9Z\" clip-rule=\"evenodd\"/>",
+ "download-minimalistic-bold": "<path fill=\"currentColor\" d=\"M12.5535 16.5061C12.4114 16.6615 12.2106 16.75 12 16.75C11.7894 16.75 11.5886 16.6615 11.4465 16.5061L7.44648 12.1311C7.16698 11.8254 7.18822 11.351 7.49392 11.0715C7.79963 10.792 8.27402 10.8132 8.55352 11.1189L11.25 14.0682V3C11.25 2.58579 11.5858 2.25 12 2.25C12.4142 2.25 12.75 2.58579 12.75 3V14.0682L15.4465 11.1189C15.726 10.8132 16.2004 10.792 16.5061 11.0715C16.8118 11.351 16.833 11.8254 16.5535 12.1311L12.5535 16.5061Z\"/><path fill=\"currentColor\" d=\"M3.75 15C3.75 14.5858 3.41422 14.25 3 14.25C2.58579 14.25 2.25 14.5858 2.25 15V15.0549C2.24998 16.4225 2.24996 17.5248 2.36652 18.3918C2.48754 19.2919 2.74643 20.0497 3.34835 20.6516C3.95027 21.2536 4.70814 21.5125 5.60825 21.6335C6.47522 21.75 7.57754 21.75 8.94513 21.75H15.0549C16.4225 21.75 17.5248 21.75 18.3918 21.6335C19.2919 21.5125 20.0497 21.2536 20.6517 20.6516C21.2536 20.0497 21.5125 19.2919 21.6335 18.3918C21.75 17.5248 21.75 16.4225 21.75 15.0549V15C21.75 14.5858 21.4142 14.25 21 14.25C20.5858 14.25 20.25 14.5858 20.25 15C20.25 16.4354 20.2484 17.4365 20.1469 18.1919C20.0482 18.9257 19.8678 19.3142 19.591 19.591C19.3142 19.8678 18.9257 20.0482 18.1919 20.1469C17.4365 20.2484 16.4354 20.25 15 20.25H9C7.56459 20.25 6.56347 20.2484 5.80812 20.1469C5.07435 20.0482 4.68577 19.8678 4.40901 19.591C4.13225 19.3142 3.9518 18.9257 3.85315 18.1919C3.75159 17.4365 3.75 16.4354 3.75 15Z\"/>",
+ "restart-bold": "<path fill=\"currentColor\" d=\"M18.2577 3.50828C18.538 3.62437 18.7207 3.89785 18.7207 4.20119V8.44383C18.7207 8.85805 18.3849 9.19383 17.9707 9.19383H13.728C13.4247 9.19383 13.1512 9.0111 13.0351 8.73085C12.9191 8.45059 12.9832 8.128 13.1977 7.9135L14.8007 6.3105C12.1674 5.20912 9.01606 5.7309 6.87348 7.87348C4.04217 10.7048 4.04217 15.2952 6.87348 18.1265C9.70478 20.9578 14.2952 20.9578 17.1265 18.1265C18.7727 16.4803 19.4622 14.2401 19.1935 12.0937C19.142 11.6827 19.4335 11.3078 19.8445 11.2563C20.2555 11.2049 20.6304 11.4963 20.6819 11.9073C21.0057 14.4934 20.1746 17.1997 18.1872 19.1872C14.7701 22.6043 9.2299 22.6043 5.81282 19.1872C2.39573 15.7701 2.39573 10.2299 5.81282 6.81282C8.55119 4.07444 12.6515 3.5312 15.9309 5.18028L17.4404 3.67086C17.6549 3.45637 17.9774 3.3922 18.2577 3.50828Z\"/>",
+ "check-circle-bold": "<path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12ZM16.0303 8.96967C16.3232 9.26256 16.3232 9.73744 16.0303 10.0303L11.0303 15.0303C10.7374 15.3232 10.2626 15.3232 9.96967 15.0303L7.96967 13.0303C7.67678 12.7374 7.67678 12.2626 7.96967 11.9697C8.26256 11.6768 8.73744 11.6768 9.03033 11.9697L10.5 13.4393L12.7348 11.2045L14.9697 8.96967C15.2626 8.67678 15.7374 8.67678 16.0303 8.96967Z\" clip-rule=\"evenodd\"/>",
+ "danger-circle-bold": "<path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12ZM12 6.25C12.4142 6.25 12.75 6.58579 12.75 7V13C12.75 13.4142 12.4142 13.75 12 13.75C11.5858 13.75 11.25 13.4142 11.25 13V7C11.25 6.58579 11.5858 6.25 12 6.25ZM12 17C12.5523 17 13 16.5523 13 16C13 15.4477 12.5523 15 12 15C11.4477 15 11 15.4477 11 16C11 16.5523 11.4477 17 12 17Z\" clip-rule=\"evenodd\"/>",
+ "record-circle-bold": "<path fill=\"currentColor\" d=\"M14.25 12C14.25 11.0335 15.0335 10.25 16 10.25C16.9665 10.25 17.75 11.0335 17.75 12C17.75 12.9665 16.9665 13.75 16 13.75C15.0335 13.75 14.25 12.9665 14.25 12Z\"/><path fill=\"currentColor\" d=\"M8 13.75C8.9665 13.75 9.75 12.9665 9.75 12C9.75 11.0335 8.9665 10.25 8 10.25C7.0335 10.25 6.25 11.0335 6.25 12C6.25 12.9665 7.0335 13.75 8 13.75Z\"/><path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22ZM13.2609 13.75C12.9375 13.2449 12.75 12.6443 12.75 12C12.75 10.2051 14.2051 8.75 16 8.75C17.7949 8.75 19.25 10.2051 19.25 12C19.25 13.7949 17.7949 15.25 16 15.25H8C6.20507 15.25 4.75 13.7949 4.75 12C4.75 10.2051 6.20507 8.75 8 8.75C9.79493 8.75 11.25 10.2051 11.25 12C11.25 12.6443 11.0625 13.2449 10.7391 13.75H13.2609Z\" clip-rule=\"evenodd\"/>"
+};
+const icon = name => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
+document.querySelectorAll('[data-icon]').forEach(el => el.innerHTML = icon(el.dataset.icon));
+
+const MAX_SECONDS = 20;
+const FRAME_W = 960, FRAME_H = 540;
+const $ = id => document.getElementById(id);
+
+const live = $('live'), out = $('out'), ctx = out.getContext('2d');
+const pill = $('pill'), progress = $('progress');
+const camBtn = $('camBtn'), mainBtn = $('mainBtn'), sideBtn = $('sideBtn'), saveBtn = $('saveBtn');
+const dirRev = $('dirRev'), dirFwd = $('dirFwd');
+const loopBtn = $('loopBtn'), soundBtn = $('soundBtn');
+const pitchInput = $('pitch'), pitchVal = $('pitchVal'), pitchReset = $('pitchReset');
+
+out.width = FRAME_W; out.height = FRAME_H;
+const grab = document.createElement('canvas');
+grab.width = FRAME_W; grab.height = FRAME_H;
+const gctx = grab.getContext('2d');
+
+let stream = null;
+let frames = [];           // { bmp: ImageBitmap, t: ms since start }
+let recording = false, recStart = 0;
+let audioRecorder = null, audioChunks = [];
+let origAudio = null;      // AudioBuffer slik det ble tatt opp
+let direction = 'reverse'; // 'reverse' eller 'forward'
+let audioCtx = null;
+let playing = false, playRaf = null, playSource = null;
+let liveVisible = true;
+let loopOn = true, soundOn = true, hasMic = true;
+let procFwd = null, procRev = null, pitchSemis = 0, exporting = false;
+const fsSupported = 'showDirectoryPicker' in window;
+let dirHandle = null;      // mappen videoene lagres i
+
+const hasClip = () => frames.length >= 2 && !recording;
+const fmt = ms => { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+
+// ---------- Oppdater hele grensesnittet ut fra tilstanden ----------
+function render() {
+  const clipMode = !liveVisible && hasClip();
+
+  // Hovedknapp: opptak i kameramodus, spill/stopp i klippmodus
+  mainBtn.disabled = !stream || exporting;
+  mainBtn.classList.toggle('recording', recording);
+  mainBtn.classList.toggle('clip', clipMode);
+  if (clipMode) {
+    $('mainIcon').innerHTML = icon(playing ? 'stop-bold' : 'play-bold');
+    mainBtn.setAttribute('aria-label', playing ? 'Stopp' : 'Spill av');
+  } else {
+    $('mainIcon').innerHTML = '';
+    mainBtn.setAttribute('aria-label', recording ? 'Stopp opptak' : 'Ta opp');
+  }
+
+  // Sideknapp: tilbake til kamera (fra klipp) eller se klippet igjen (fra kamera)
+  if (clipMode) {
+    $('sideIcon').innerHTML = icon('videocamera-bold'); $('sideLabel').textContent = 'Nytt opptak';
+    sideBtn.disabled = exporting;
+  } else {
+    $('sideIcon').innerHTML = icon('play-bold'); $('sideLabel').textContent = 'Se klippet';
+    sideBtn.disabled = !hasClip() || recording;
+  }
+
+  $('saveIcon').innerHTML = icon('download-minimalistic-bold');
+  $('saveLabel').textContent = exporting ? 'Lagrer…' : 'Lagre';
+  saveBtn.disabled = !hasClip() || exporting;
+
+  dirRev.classList.toggle('on', direction === 'reverse');
+  dirFwd.classList.toggle('on', direction === 'forward');
+  dirRev.disabled = dirFwd.disabled = recording || exporting;
+
+  pitchInput.disabled = exporting;
+  pitchReset.disabled = exporting || +pitchInput.value === 0;
+  const v = +pitchInput.value; pitchVal.textContent = (v > 0 ? '+' : '') + v;
+
+  loopBtn.setAttribute('aria-pressed', loopOn);
+  soundBtn.setAttribute('aria-pressed', soundOn && hasMic);
+  soundBtn.disabled = !hasMic || recording || exporting;
+  $('soundIcon').innerHTML = icon(soundOn && hasMic ? 'volume-loud-bold' : 'volume-cross-bold');
+  $('folderName').textContent = dirHandle ? dirHandle.name : 'Velg mappe';
+  $('folderBtn').setAttribute('aria-pressed', !!dirHandle);
+  $('folderBtn').disabled = exporting;
+
+  // Statuspille
+  if (recording) {
+    pill.className = 'pill show';
+  } else if (playing) {
+    pill.className = 'pill show play';
+    pill.innerHTML = icon(direction === 'forward' ? 'rewind-forward-bold' : 'rewind-back-bold') +
+      (direction === 'forward' ? 'Forlengs' : 'Baklengs') + (pitchSemis ? ` · stemme ${pitchSemis > 0 ? '+' : ''}${pitchSemis}` : '');
+  } else {
+    pill.className = 'pill';
+  }
+}
+
+let toastTimer = null;
+function toast(text, ok = true) {
+  const t = $('toast');
+  t.className = 'toast show' + (ok ? '' : ' err');
+  $('toastIcon').innerHTML = icon(ok ? 'check-circle-bold' : 'danger-circle-bold');
+  $('toastText').textContent = text;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), ok ? 3500 : 7000);
+}
+
+function showLive(on) {
+  liveVisible = on;
+  live.style.display = on ? 'block' : 'none';
+  out.style.display = on ? 'none' : 'block';
+  render();
+}
+
+function goToCamera() {
+  stopPlayback(); progress.style.width = '0'; showLive(true);
+}
+
+// ---------- Kamera ----------
+camBtn.onclick = async () => {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: true
+    });
+  } catch (e) {
+    try { stream = await navigator.mediaDevices.getUserMedia({ video: true }); hasMic = false; }
+    catch (e2) { $('emptyMsg').textContent = 'Fikk ikke tilgang til kameraet: ' + e2.message; return; }
+  }
+  live.srcObject = stream;
+  $('empty').style.display = 'none';
+  showLive(true);
+};
+
+mainBtn.onclick = () => {
+  if (recording) stopRecording();
+  else if (!liveVisible && hasClip()) playing ? (stopPlayback(), render()) : startPlayback();
+  else startRecording();
+};
+
+// Fra et klipp går «Nytt opptak» bare tilbake til kameraet – opptak starter først ved neste trykk.
+sideBtn.onclick = () => { if (!liveVisible) goToCamera(); else if (hasClip()) startPlayback(); };
+
+// ---------- Opptak ----------
+function startRecording() {
+  stopPlayback();
+  frames.forEach(f => f.bmp.close && f.bmp.close());
+  frames = []; origAudio = procFwd = procRev = null; audioChunks = [];
+  recording = true; recStart = performance.now();
+  showLive(true);
+
+  const audioTracks = stream.getAudioTracks();
+  if (audioTracks.length && soundOn) {
+    audioRecorder = new MediaRecorder(new MediaStream(audioTracks));
+    audioRecorder.ondataavailable = e => e.data.size && audioChunks.push(e.data);
+    audioRecorder.start();
+  } else audioRecorder = null;
+
+  captureLoop();
+}
+
+function captureLoop() {
+  if (!recording) return;
+  const t = performance.now() - recStart;
+  if (t >= MAX_SECONDS * 1000) { stopRecording(); return; }
+  progress.style.width = (t / (MAX_SECONDS * 1000) * 100) + '%';
+  progress.style.background = 'var(--red)';
+  pill.innerHTML = `<span class="dot"></span>${fmt(t)} / ${fmt(MAX_SECONDS * 1000)}`;
+
+  // Tegn speilvendt (som forhåndsvisningen), beskåret til 16:9
+  const vw = live.videoWidth, vh = live.videoHeight;
+  if (vw && vh) {
+    const scale = Math.max(FRAME_W / vw, FRAME_H / vh);
+    const dw = vw * scale, dh = vh * scale;
+    gctx.save();
+    gctx.translate(FRAME_W, 0); gctx.scale(-1, 1);
+    gctx.drawImage(live, (FRAME_W - dw) / 2, (FRAME_H - dh) / 2, dw, dh);
+    gctx.restore();
+    createImageBitmap(grab).then(bmp => { if (recording || frames.length) frames.push({ bmp, t }); });
+  }
+  if (live.requestVideoFrameCallback) live.requestVideoFrameCallback(captureLoop);
+  else requestAnimationFrame(captureLoop);
+}
+
+async function stopRecording() {
+  if (!recording) return;
+  recording = false;
+  progress.style.width = '0';
+  render();
+
+  if (audioRecorder) {
+    await new Promise(res => { audioRecorder.onstop = res; audioRecorder.stop(); });
+    try {
+      audioCtx = audioCtx || new AudioContext();
+      const buf = await audioCtx.decodeAudioData(await new Blob(audioChunks).arrayBuffer());
+      origAudio = buf;
+      applyPitch();
+    } catch (e) { console.warn('Kunne ikke dekode lyd', e); origAudio = procFwd = procRev = null; }
+  }
+  // vent et øyeblikk så siste bitmaps rekker å komme inn
+  await new Promise(r => setTimeout(r, 50));
+  frames.sort((a, b) => a.t - b.t);
+  if (frames.length < 2) { toast('Klippet ble for kort – prøv igjen.', false); render(); return; }
+  startPlayback(); // spiller i valgt retning
+}
+
+// ---------- Stemme (tonehøyde) ----------
+// Endrer tonehøyden uten å endre lengden:
+// 1) strekker lyden i tid med WSOLA (uten å endre tonen), 2) resampler tilbake til opprinnelig lengde.
+// ratio > 1 = lysere stemme, ratio < 1 = dypere stemme.
+function pitchShift(buf, ratio) {
+  const n = buf.length, chs = buf.numberOfChannels;
+  const N = Math.round(buf.sampleRate * 0.04) & ~1; // ca. 40 ms ramme
+  const Hs = N / 2, Ha = Hs / ratio, tol = Math.round(Hs / 4);
+  const win = new Float32Array(N);
+  for (let j = 0; j < N; j++) win[j] = 0.5 - 0.5 * Math.cos(2 * Math.PI * j / N);
+
+  // Monomiks brukes til å finne beste overlapp
+  const mono = new Float32Array(n);
+  for (let c = 0; c < chs; c++) { const d = buf.getChannelData(c); for (let i = 0; i < n; i++) mono[i] += d[i] / chs; }
+
+  const count = Math.floor((n - N - tol) / Ha);
+  const L = count * Hs + N;
+  const starts = new Int32Array(count);
+  let prev = 0;
+  for (let k = 0; k < count; k++) {
+    const a = Math.round(k * Ha);
+    if (k === 0) { starts[k] = a; prev = a; continue; }
+    const nat = prev + Hs; // naturlig fortsettelse av forrige ramme
+    let best = 0, bestScore = -Infinity;
+    for (let d = -tol; d <= tol; d += 2) {
+      const s = a + d;
+      if (s < 0 || s + N > n || nat + N > n) continue;
+      let score = 0;
+      for (let j = 0; j < N; j += 4) score += mono[s + j] * mono[nat + j];
+      if (score > bestScore) { bestScore = score; best = d; }
+    }
+    starts[k] = Math.max(0, Math.min(n - N, a + best));
+    prev = starts[k];
+  }
+
+  const res = audioCtx.createBuffer(chs, n, buf.sampleRate);
+  for (let c = 0; c < chs; c++) {
+    const src = buf.getChannelData(c);
+    const st = new Float32Array(L), norm = new Float32Array(L);
+    for (let k = 0; k < count; k++) {
+      const o = k * Hs, s = starts[k];
+      for (let j = 0; j < N; j++) { st[o + j] += src[s + j] * win[j]; norm[o + j] += win[j]; }
+    }
+    for (let i = 0; i < L; i++) if (norm[i] > 1e-3) st[i] /= norm[i];
+    const dst = res.getChannelData(c);
+    for (let i = 0; i < n; i++) {
+      const pos = i * ratio;
+      if (pos >= L - 1) break;
+      const p = pos | 0, f = pos - p;
+      dst[i] = st[p] + (st[p + 1] - st[p]) * f;
+    }
+  }
+  return res;
+}
+
+// Ferdigbehandlet lyd (med stemmeendring) i begge retninger
+function currentAudio() { return direction === 'forward' ? procFwd : procRev; }
+function applyPitch() {
+  if (!origAudio) { procFwd = procRev = null; return; }
+  procFwd = pitchSemis !== 0 ? pitchShift(origAudio, Math.pow(2, pitchSemis / 12)) : origAudio;
+  procRev = reverseBuffer(procFwd);
+}
+
+function reverseBuffer(buf) {
+  const rev = audioCtx.createBuffer(buf.numberOfChannels, buf.length, buf.sampleRate);
+  for (let c = 0; c < buf.numberOfChannels; c++) {
+    const src = buf.getChannelData(c), dst = rev.getChannelData(c);
+    for (let i = 0, n = src.length; i < n; i++) dst[i] = src[n - 1 - i];
+  }
+  return rev;
+}
+
+// ---------- Avspilling ----------
+// Spill av i valgt retning (direction). destNode = valgfri lydmål (for eksport).
+// onEnd kalles når én runde er ferdig.
+function startPlayback({ destNode = null, once = false, onEnd = null } = {}) {
+  if (!hasClip()) return;
+  stopPlayback();
+  playing = true;
+  showLive(false);
+  const fwd = direction === 'forward';
+  const first = frames[0].t;
+  const duration = frames[frames.length - 1].t - first;
+
+  const runOnce = () => {
+    const t0 = performance.now();
+    if (currentAudio() && soundOn) {
+      audioCtx.resume();
+      playSource = audioCtx.createBufferSource();
+      playSource.buffer = currentAudio();
+      playSource.connect(destNode || audioCtx.destination);
+      playSource.start();
+    }
+    let idx = fwd ? 0 : frames.length - 1;
+    const step = () => {
+      if (!playing) return;
+      const elapsed = performance.now() - t0;
+      // tidspunkt i originalklippet
+      const target = first + (fwd ? elapsed : duration - elapsed);
+      if (fwd) while (idx < frames.length - 1 && frames[idx + 1].t <= target) idx++;
+      else while (idx > 0 && frames[idx - 1].t >= target) idx--;
+      ctx.drawImage(frames[idx].bmp, 0, 0);
+      progress.style.background = 'var(--blue)';
+      progress.style.width = Math.min(100, elapsed / duration * 100) + '%';
+      if (elapsed >= duration) {
+        if (playSource) { try { playSource.stop(); } catch {} playSource = null; }
+        if (!once && loopOn) { runOnce(); return; }
+        playing = false; render(); onEnd && onEnd();
+        return;
+      }
+      playRaf = requestAnimationFrame(step);
+    };
+    step();
+  };
+  runOnce();
+}
+
+function stopPlayback() {
+  playing = false;
+  cancelAnimationFrame(playRaf);
+  if (playSource) { try { playSource.stop(); } catch {} playSource = null; }
+}
+
+// ---------- Innstillinger ----------
+function setDirection(dir) {
+  direction = dir;
+  if (hasClip()) startPlayback(); else render();
+}
+dirRev.onclick = () => setDirection('reverse');
+dirFwd.onclick = () => setDirection('forward');
+
+loopBtn.onclick = () => { loopOn = !loopOn; render(); };
+soundBtn.onclick = () => {
+  soundOn = !soundOn;
+  if (playing) startPlayback(); else render();
+};
+
+function commitPitch() {
+  if (+pitchInput.value === pitchSemis) { render(); return; }
+  pitchSemis = +pitchInput.value;
+  applyPitch();
+  if (playing && !exporting) startPlayback(); // hør endringen med en gang
+  else render();
+}
+pitchInput.addEventListener('input', render);
+pitchInput.addEventListener('change', commitPitch);
+pitchReset.onclick = () => { pitchInput.value = 0; commitPitch(); };
+
+// ---------- Lagringsmappe (uten server) ----------
+// Chrome lar siden skrive til en mappe du velger. Valget huskes i IndexedDB.
+function kv(mode, fn) {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open('revers', 1);
+    open.onupgradeneeded = () => open.result.createObjectStore('kv');
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const tx = open.result.transaction('kv', mode);
+      const req = fn(tx.objectStore('kv'));
+      tx.oncomplete = () => resolve(req && req.result);
+      tx.onerror = () => reject(tx.error);
+    };
+  });
+}
+const kvGet = k => kv('readonly', s => s.get(k));
+const kvSet = (k, v) => kv('readwrite', s => s.put(v, k));
+
+async function chooseDir() {
+  try {
+    dirHandle = await showDirectoryPicker({ id: 'revers-videoer', mode: 'readwrite', startIn: 'videos' });
+  } catch (e) {
+    return null; // avbrutt
+  }
+  try { await kvSet('dir', dirHandle); } catch (e) { console.warn('Kunne ikke huske mappen', e); }
+  render();
+  return dirHandle;
+}
+
+// Må kalles direkte fra et klikk, fordi Chrome bare spør om tilgang da.
+// Gir mappen, eller null hvis brukeren avbrøt.
+async function ensureDir() {
+  if (!dirHandle) return chooseDir();
+  const opts = { mode: 'readwrite' };
+  try {
+    if (await dirHandle.queryPermission(opts) === 'granted') return dirHandle;
+    if (await dirHandle.requestPermission(opts) === 'granted') return dirHandle;
+  } catch (e) { console.warn(e); }
+  return chooseDir(); // tilgang nektet eller mappen borte – velg på nytt
+}
+
+const folderBtn = $('folderBtn');
+folderBtn.hidden = !fsSupported;
+folderBtn.onclick = () => chooseDir();
+if (fsSupported) kvGet('dir').then(h => { if (h) { dirHandle = h; render(); } }).catch(() => {});
+
+async function writeToDir(dir, name, blob) {
+  const fh = await dir.getFileHandle(name, { create: true });
+  const w = await fh.createWritable();
+  await w.write(blob);
+  await w.close();
+}
+
+function download(name, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+// ---------- Lagring ----------
+saveBtn.onclick = async () => {
+  if (exporting || !hasClip()) return;
+  // Spør om mappe/tilgang først, mens klikket fortsatt gjelder
+  let dir = null;
+  if (fsSupported) {
+    dir = await ensureDir();
+    if (!dir) { toast('Lagring avbrutt – ingen mappe valgt.', false); return; }
+  }
+  const vStream = out.captureStream(30);
+  let dest = null;
+  if (currentAudio() && soundOn) {
+    dest = audioCtx.createMediaStreamDestination();
+    dest.stream.getAudioTracks().forEach(t => vStream.addTrack(t));
+  }
+  const types = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'];
+  const mimeType = types.find(t => MediaRecorder.isTypeSupported(t)) || '';
+  const rec = new MediaRecorder(vStream, mimeType ? { mimeType, videoBitsPerSecond: 6e6 } : {});
+  const chunks = [];
+  rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+  rec.onstop = async () => {
+    const type = rec.mimeType || mimeType;
+    const ext = type.includes('mp4') ? 'mp4' : 'webm';
+    const blob = new Blob(chunks, { type });
+    const dirName = direction === 'forward' ? 'forlengs' : 'baklengs';
+    const name = 'revers-' + dirName + '-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.' + ext;
+    if (dir) {
+      try {
+        await writeToDir(dir, name, blob);
+        toast(`Lagret i «${dir.name}»: ${name}`);
+      } catch (e) {
+        console.warn('Kunne ikke skrive til mappen', e);
+        download(name, blob);
+        toast('Fikk ikke skrevet til mappen – lastet ned i stedet.', false);
+      }
+    } else {
+      // Nettlesere uten mappetilgang (f.eks. Safari): prøv lokal server, ellers last ned
+      try {
+        const saveUrl = location.port === '8765' ? '/save' : 'http://127.0.0.1:8765/save';
+        const res = await fetch(saveUrl, { method: 'POST', headers: { 'X-Filename': name }, body: blob });
+        if (!res.ok) throw new Error(res.status);
+        const { saved } = await res.json();
+        toast('Lagret: ' + saved);
+      } catch (e) {
+        download(name, blob);
+        toast('Lastet ned til Nedlastinger. Bruk Chrome for å lagre rett i en mappe.', false);
+      }
+    }
+    exporting = false;
+    render();
+  };
+  exporting = true;
+  rec.start();
+  startPlayback({ destNode: dest, once: true, onEnd: () => setTimeout(() => rec.stop(), 100) });
+};
+
+document.addEventListener('keydown', e => {
+  if (e.code !== 'Space' || e.target.tagName === 'INPUT' || e.repeat) return;
+  e.preventDefault();
+  if (e.target.blur) e.target.blur(); // hindrer at en fokusert knapp også trykkes
+  if (!mainBtn.disabled) mainBtn.click();
+});
+
+render();
+
+// ---------- Installering (Chrome) ----------
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('sw.js').catch(e => console.warn('Service worker feilet', e));
+}
+let installPrompt = null;
+const installBtn = $('installBtn');
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();          // vis vår egen knapp i stedet for Chromes standard
+  installPrompt = e;
+  installBtn.hidden = false; $('tag').hidden = true;
+});
+installBtn.onclick = async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  const { outcome } = await installPrompt.userChoice;
+  installPrompt = null;
+  installBtn.hidden = true; $('tag').hidden = false;
+  if (outcome === 'accepted') toast('Revers er installert!');
+};
+window.addEventListener('appinstalled', () => { installBtn.hidden = true; $('tag').hidden = false; });
+</script>
+</body>
+</html>

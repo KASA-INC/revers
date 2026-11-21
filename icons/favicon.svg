@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff3b4a"/>
+      <stop offset="1" stop-color="#ff7a45"/>
+    </linearGradient>
+    <radialGradient id="gl" cx=".25" cy=".15" r=".9">
+      <stop offset="0" stop-color="#fff" stop-opacity=".22"/>
+      <stop offset=".6" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#8a0f1a" flood-opacity=".35"/>
+    </filter>
+    <clipPath id="c"><rect width="512" height="512" rx="118"/></clipPath>
+  </defs>
+  <rect width="512" height="512" rx="118" fill="url(#bg)"/>
+  
+  <g filter="url(#sh)">
+    <path fill="#fff" transform="translate(70.00 70.00) scale(15.5)" d="M21.9998 17.5737L21.9998 6.42632C21.9998 4.57895 20.3991 3.41122 19.0966 4.30838L13 8.76844L13 7.12303C13 5.50658 11.5327 4.48482 10.3388 5.26983L2.92136 10.1468C1.69288 10.9545 1.69288 13.0455 2.92135 13.8532L10.3388 18.7302C11.5327 19.5152 13 18.4934 13 16.877V15.2316L19.0966 19.6916C20.3991 20.5888 21.9998 19.4211 21.9998 17.5737Z"/>
+  </g>
+</svg>
