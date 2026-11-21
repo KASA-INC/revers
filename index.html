@@ -453,24 +453,35 @@ function goToCamera() {
 const mirrored = () => facing !== 'environment';
 
 async function startCamera(want, quiet = false) {
-  const open = async mode => {
-    const video = { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } };
-    try { const s = await navigator.mediaDevices.getUserMedia({ video, audio: true }); hasMic = true; return s; }
-    catch (e) { const s = await navigator.mediaDevices.getUserMedia({ video }); hasMic = false; return s; }
+  const gum = c => navigator.mediaDevices.getUserMedia(c);
+  const videoFor = mode => ({ facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } });
+  const fail = () => {
+    if (!quiet) { $('emptyMsg').textContent = 'Fikk ikke tilgang til kameraet.'; $('emptyMsg').hidden = false; }
+    $('empty').style.display = ''; render();
   };
-  // Telefoner (særlig iPhone) kan bare bruke ett kamera om gangen: slipp det gamle først
-  const prevFacing = stream ? facing : null;
-  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-  let next;
-  try { next = await open(want); }
-  catch (e) {
-    // Byttet feilet – prøv å få tilbake kameraet vi hadde
-    if (prevFacing) { try { next = await open(prevFacing); } catch (e2) {} }
-    if (!next) {
-      if (!quiet) { $('emptyMsg').textContent = 'Fikk ikke tilgang til kameraet.'; $('emptyMsg').hidden = false; }
-      $('empty').style.display = ''; render(); return;
+  let next = null;
+
+  if (!stream) {
+    // Første start: kamera og mikrofon i ett og samme spørsmål
+    try { next = await gum({ video: videoFor(want), audio: true }); hasMic = true; }
+    catch (e) {
+      try { next = await gum({ video: videoFor(want) }); hasMic = false; }
+      catch (e2) { fail(); return; }
     }
-    toast('Fikk ikke byttet kamera.', false);
+  } else {
+    // Kamerabytte: mikrofonen fortsetter å gå, så nettleseren ser at opptaket
+    // aldri stoppet og ikke spør om tilgang på nytt. Bare videoen byttes.
+    // (Telefoner kan bare bruke ett kamera om gangen, så det gamle slippes først.)
+    const audio = stream.getAudioTracks();
+    const prevFacing = facing;
+    stream.getVideoTracks().forEach(t => t.stop());
+    let v = null;
+    try { v = await gum({ video: videoFor(want) }); }
+    catch (e) {
+      try { v = await gum({ video: videoFor(prevFacing) }); toast('Fikk ikke byttet kamera.', false); }
+      catch (e2) { audio.forEach(t => t.stop()); stream = null; fail(); return; }
+    }
+    next = new MediaStream([...v.getVideoTracks(), ...audio]);
   }
   stream = next;
   facing = stream.getVideoTracks()[0].getSettings().facingMode || want;
