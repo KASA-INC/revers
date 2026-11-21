@@ -1,6 +1,6 @@
 // Service worker for Revers: gjør appen installerbar og lar den åpne uten nett.
 // Henter alltid nyeste versjon fra serveren først, og bruker lagret kopi bare som reserve.
-const CACHE = 'revers-v3';
+const CACHE = 'revers-v4';
 const ASSETS = [
   './',
   'index.html',
